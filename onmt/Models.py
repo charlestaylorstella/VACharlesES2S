@@ -608,7 +608,8 @@ class DecoderState(object):
     def detach(self):
         for h in self._all:
             if h is not None:
-                h.detach_()
+                h.detach()
+                #h.detach_()
 
     def beam_update(self, idx, positions, beam_size):
         for e in self._all:
