@@ -76,7 +76,9 @@ class GlobalAttention(nn.Module):
         out_bias = self.attn_type == "mlp"
         self.linear_out = nn.Linear(dim*2, dim, bias=out_bias)
 
-        self.sm = nn.Softmax(-1)
+        #self.sm = nn.Softmax(dim=-1) # work on github
+        #self.sm = nn.Softmax(-1) # maybe work on pytorch >= 0.3 version
+        self.sm = nn.Softmax() # maybe work on pytorch <= 0.1 version
         self.tanh = nn.Tanh()
 
         if coverage:
