@@ -9,7 +9,7 @@ from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 import onmt
 from onmt.Utils import aeq
-
+import onmt.gaussianMixtureModel as gaussianMixtureModel
 
 def rnn_factory(rnn_type, **kwargs):
     # Use pytorch version when available.
@@ -93,6 +93,52 @@ class MeanEncoder(EncoderBase):
         encoder_final = (mean, mean)
         return encoder_final, memory_bank
 
+class FCLayer(nn.Module):
+    """ fully connected layer """
+    def __init__(self, input_dim, output_dim, use_bias=True, multigpu=False) :
+        self.multigpu = multigpu
+        super(FCLayer, self).__init__()
+        self.fc = nn.Linear(input_dim, output_dim, bias=use_bias)
+
+    def forward(self, x):
+        y = self.fc_weight(x)
+        return y
+
+class VariationalInference(nn.Module):
+     """ VariationalInference and GMM """
+     def __init__(self, encoder_dim, latent_dim, cluster_num, fc_use_bias=True, multigpu=False):
+         self.multigpu = multigpu
+         super(VariationalInference, self).__init__()
+         #self.encoder_dim = encoder_dim
+         #self.latent_dim = latent_dim
+         #self.cluster_num = cluster_num
+         
+         self.fc_z_mean = FCLayer(encoder_dim, latent_dim)         
+         self.fc_z_log_variance_sq = FCLayer(encoder_dim, latent_dim)
+         self.gmm = gaussianMixtureModel.gaussianMixtureModel(latent_dim, cluster_num, batch_size)
+         #self.z_mean = ?
+         #self.z_log_variance_sq = ?      
+    
+     def reparameter(self, mean, variance_sq):
+         all_zero_mean = torch.zeros(mean.size())
+         all_one_var_squ = torch.ones(variance_sq.size())
+         epsilon = torch.normal(all_zero_mean, all_one_var_squ)
+         return mean + math.exp(variance_sq / 2) * epsilon
+
+     def forward(self, encoder_output):
+         z_mean = self.fc_z_mean(encoder_output)
+         z_log_variance_sq = self.fc_z_log_variance_sq(encoder_output)
+         z = self.reparameter(self.z_mean, self.z_log_variance_sq)
+         #return z_mean, z_log_variance_sq, z
+         
+         # repeat for category
+         #z_mean_duplicate4class = z_mean.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
+         #z_log_variance_sq_duplicate4class = z_log_variance_sq.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
+         #z_duplicate4class = z.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
+         
+         P_c_given_x, loss_without_crossent = self.gmm(z_mean, z_log_variance_sq, z) 
+         
+         return z, P_c_given_x, loss_without_crossent
 
 class RNNEncoder(EncoderBase):
     """ A generic recurrent neural network encoder.
@@ -553,11 +599,12 @@ class NMTModel(nn.Module):
       decoder (:obj:`RNNDecoderBase`): a decoder object
       multi<gpu (bool): setup for multigpu support
     """
-    def __init__(self, encoder, decoder, multigpu=False):
+    def __init__(self, encoder, decoder, variationalInference, multigpu=False):
         self.multigpu = multigpu
         super(NMTModel, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
+        self.variationalInference = variationalInference
 
     def forward(self, src, tgt, lengths, dec_state=None):
         """Forward propagate a `src` and `tgt` pair for training.
@@ -583,8 +630,10 @@ class NMTModel(nn.Module):
         tgt = tgt[:-1]  # exclude last target from inputs
 
         enc_final, memory_bank = self.encoder(src, lengths)
+        P, loss_without_crossent, z = self.variationalInference(enc_final)
+        #z = enc_final
         enc_state = \
-            self.decoder.init_decoder_state(src, memory_bank, enc_final)
+            self.decoder.init_decoder_state(src, memory_bank, z)
         decoder_outputs, dec_state, attns = \
             self.decoder(tgt, memory_bank,
                          enc_state if dec_state is None
@@ -594,7 +643,7 @@ class NMTModel(nn.Module):
             # Not yet supported on multi-gpu
             dec_state = None
             attns = None
-        return decoder_outputs, attns, dec_state
+        return decoder_outputs, attns, dec_state, P, loss_without_crossent
 
 
 class DecoderState(object):

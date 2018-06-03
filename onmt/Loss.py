@@ -87,7 +87,7 @@ class LossComputeBase(nn.Module):
 
     def sharded_compute_loss(self, batch, output, attns,
                              cur_trunc, trunc_size, shard_size,
-                             normalization):
+                             normalization, extra_loss):
         """Compute the forward loss and backpropagate.  Computation is done
         with shards and optionally truncation for memory efficiency.
 
@@ -119,8 +119,10 @@ class LossComputeBase(nn.Module):
         range_ = (cur_trunc, cur_trunc + trunc_size)
         shard_state = self._make_shard_state(batch, output, range_, attns)
 
+        i = 0
         for shard in shards(shard_state, shard_size):
-            loss, stats = self._compute_loss(batch, **shard)
+            print("i:", i++)
+            loss, stats = self._compute_loss(batch, **shard, extra_loss)
             loss.div(normalization).backward(retain_graph=True)
             batch_stats.update(stats)
 
@@ -182,7 +184,7 @@ class NMTLossCompute(LossComputeBase):
             "target": batch.tgt[range_[0] + 1: range_[1]],
         }
 
-    def _compute_loss(self, batch, output, target):
+    def _compute_loss(self, batch, output, target, extra_loss):
         scores = self.generator(self._bottle(output))
 
         gtruth = target.view(-1)
@@ -196,7 +198,7 @@ class NMTLossCompute(LossComputeBase):
                 log_likelihood.index_fill_(0, mask, 0)
                 tmp_.index_fill_(0, mask, 0)
             gtruth = Variable(tmp_, requires_grad=False)
-        loss = self.criterion(scores, gtruth)
+        loss = self.criterion(scores, gtruth) + extra_loss
         if self.confidence < 1:
             # Default: report smoothed ppl.
             # loss_data = -log_likelihood.sum(0)

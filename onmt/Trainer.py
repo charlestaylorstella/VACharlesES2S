@@ -302,13 +302,13 @@ class Trainer(object):
                 # 2. F-prop all but generator.
                 if self.grad_accum_count == 1:
                     self.model.zero_grad()
-                outputs, attns, dec_state = \
+                outputs, attns, dec_state, P_c_given_x, gmm_loss = \
                     self.model(src, tgt, src_lengths, dec_state)
 
                 # 3. Compute loss in shards for memory efficiency.
                 batch_stats = self.train_loss.sharded_compute_loss(
                         batch, outputs, attns, j,
-                        trunc_size, self.shard_size, normalization)
+                        trunc_size, self.shard_size, normalization, gmm_loss)
 
                 # 4. Update the parameters and statistics.
                 if self.grad_accum_count == 1:

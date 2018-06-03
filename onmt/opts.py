@@ -69,6 +69,10 @@ def model_opts(parser):
                        help='Number of layers in the decoder')
     group.add_argument('-rnn_size', type=int, default=500,
                        help='Size of rnn hidden states')
+    group.add_argument('-latent_dim', type=int, default=500,
+                       help='Dimension of latent states')
+    group.add_argument('-cluster_num', type=int, default=100,
+                       help='Number of cluster of GMM')
     group.add_argument('-cnn_kernel_width', type=int, default=3,
                        help="""Size of windows in the cnn, the kernel_size is
                        (cnn_kernel_width, 1) in conv layer""")
