@@ -11,6 +11,8 @@ import onmt
 from onmt.Utils import aeq
 import onmt.gaussianMixtureModel as gaussianMixtureModel
 
+import math
+
 def rnn_factory(rnn_type, **kwargs):
     # Use pytorch version when available.
     no_pack_padded_seq = False
@@ -101,12 +103,12 @@ class FCLayer(nn.Module):
         self.fc = nn.Linear(input_dim, output_dim, bias=use_bias)
 
     def forward(self, x):
-        y = self.fc_weight(x)
+        y = self.fc(x)
         return y
 
 class VariationalInference(nn.Module):
      """ VariationalInference and GMM """
-     def __init__(self, encoder_dim, latent_dim, cluster_num, fc_use_bias=True, multigpu=False):
+     def __init__(self, encoder_dim, latent_dim, cluster_num, batch_size, fc_use_bias=True, multigpu=False):
          self.multigpu = multigpu
          super(VariationalInference, self).__init__()
          #self.encoder_dim = encoder_dim
@@ -120,15 +122,22 @@ class VariationalInference(nn.Module):
          #self.z_log_variance_sq = ?      
     
      def reparameter(self, mean, variance_sq):
-         all_zero_mean = torch.zeros(mean.size())
-         all_one_var_squ = torch.ones(variance_sq.size())
+         all_zero_mean = torch.zeros(mean.size()).cuda() # hard cpding
+         all_one_var_squ = torch.ones(variance_sq.size()).cuda()
          epsilon = torch.normal(all_zero_mean, all_one_var_squ)
-         return mean + math.exp(variance_sq / 2) * epsilon
+         #a = variance_sq / 2
+         #b = torch.exp(a)
+         #print("variance_sq:", variance_sq.size(), "torch.exp(a):", b.size(), "epsilon:", epsilon.size(), "mean:", mean.size())
+         #c = b * epsilon
+         #d = mean + c
+         #return d
+         return mean + torch.exp(variance_sq / 2) * epsilon
 
      def forward(self, encoder_output):
+         encoder_output = encoder_output.view(encoder_output.size()[1:]) # eliminate first dimension (1*batch_size*dim) -> (batch_size*dim)
          z_mean = self.fc_z_mean(encoder_output)
          z_log_variance_sq = self.fc_z_log_variance_sq(encoder_output)
-         z = self.reparameter(self.z_mean, self.z_log_variance_sq)
+         z = self.reparameter(z_mean, z_log_variance_sq)
          #return z_mean, z_log_variance_sq, z
          
          # repeat for category
@@ -197,7 +206,15 @@ class RNNEncoder(EncoderBase):
             memory_bank = unpack(memory_bank)[0]
 
         if self.use_bridge:
+            #print("self.use_bridge in encoder")
             encoder_final = self._bridge(encoder_final)
+        #print("encoder_final:", encoder_final)
+        print("encoder_final0 shape:", encoder_final[0].size())
+        #print("encoder_final1 shape:", encoder_final[1].size())
+        #print("memory_bank:", memory_bank)
+        print("memory_bank0 shape:", memory_bank[0].size())
+        #print("memory_bank1 shape:", memory_bank[1].size())
+        #encoder_final = torch.print_tensor(encoder_final, message="encoder_final is :")
         return encoder_final, memory_bank
 
     def _initialize_bridge(self, rnn_type,
@@ -631,7 +648,7 @@ class NMTModel(nn.Module):
 
         enc_final, memory_bank = self.encoder(src, lengths)
         P, loss_without_crossent, z = self.variationalInference(enc_final)
-        #z = enc_final
+        z = enc_final
         enc_state = \
             self.decoder.init_decoder_state(src, memory_bank, z)
         decoder_outputs, dec_state, attns = \

@@ -63,15 +63,15 @@ def model_opts(parser):
 
     group.add_argument('-layers', type=int, default=-1,
                        help='Number of layers in enc/dec.')
-    group.add_argument('-enc_layers', type=int, default=2,
+    group.add_argument('-enc_layers', type=int, default=1,
                        help='Number of layers in the encoder')
-    group.add_argument('-dec_layers', type=int, default=2,
+    group.add_argument('-dec_layers', type=int, default=1,
                        help='Number of layers in the decoder')
     group.add_argument('-rnn_size', type=int, default=500,
                        help='Size of rnn hidden states')
-    group.add_argument('-latent_dim', type=int, default=500,
+    group.add_argument('-latent_dim', type=int, default=510,
                        help='Dimension of latent states')
-    group.add_argument('-cluster_num', type=int, default=100,
+    group.add_argument('-cluster_num', type=int, default=110,
                        help='Number of cluster of GMM')
     group.add_argument('-cnn_kernel_width', type=int, default=3,
                        help="""Size of windows in the cnn, the kernel_size is
@@ -84,7 +84,7 @@ def model_opts(parser):
     group.add_argument('-bridge', action="store_true",
                        help="""Have an additional layer between the last encoder
                        state and the first decoder state""")
-    group.add_argument('-rnn_type', type=str, default='LSTM',
+    group.add_argument('-rnn_type', type=str, default='GRU',
                        choices=['LSTM', 'GRU', 'SRU'],
                        action=CheckSRU,
                        help="""The gate type to use in the RNNs""")

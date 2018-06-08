@@ -222,11 +222,14 @@ class Trainer(object):
             tgt = onmt.io.make_features(batch, 'tgt')
 
             # F-prop through the model.
-            outputs, attns, _ = self.model(src, tgt, src_lengths)
+            print("src:", src, "tgt:", tgt, "src_lengths:", src_lengths)
+            print("src:", src.size(), "tgt:", tgt.size(), "src_lengths:", src_lengths.size())
+            dec_state = None
+            outputs, attns, _, P, gmm_loss = self.model(src, tgt, src_lengths, dec_state)
 
             # Compute loss.
             batch_stats = self.valid_loss.monolithic_compute_loss(
-                    batch, outputs, attns)
+                    batch, outputs, attns, gmm_loss)
 
             # Update statistics.
             stats.update(batch_stats)
@@ -302,6 +305,8 @@ class Trainer(object):
                 # 2. F-prop all but generator.
                 if self.grad_accum_count == 1:
                     self.model.zero_grad()
+                print("in train src:", src, "tgt:", tgt, "src_lengths:", src_lengths, "dec_state:", dec_state)
+                print("in train src:", src.size(), "tgt:", tgt.size(), "src_lengths:", src_lengths.size(), "dec_state:", dec_state)
                 outputs, attns, dec_state, P_c_given_x, gmm_loss = \
                     self.model(src, tgt, src_lengths, dec_state)
 

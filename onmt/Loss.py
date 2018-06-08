@@ -52,7 +52,7 @@ class LossComputeBase(nn.Module):
         """
         return NotImplementedError
 
-    def _compute_loss(self, batch, output, target, **kwargs):
+    def _compute_loss(self, batch, extra_loss, output, target, **kwargs):
         """
         Compute the loss. Subclass must define this method.
 
@@ -65,7 +65,7 @@ class LossComputeBase(nn.Module):
         """
         return NotImplementedError
 
-    def monolithic_compute_loss(self, batch, output, attns):
+    def monolithic_compute_loss(self, batch, output, attns, extra_loss):
         """
         Compute the forward loss for the batch.
 
@@ -81,7 +81,7 @@ class LossComputeBase(nn.Module):
         """
         range_ = (0, batch.tgt.size(0))
         shard_state = self._make_shard_state(batch, output, range_, attns)
-        _, batch_stats = self._compute_loss(batch, **shard_state)
+        _, batch_stats = self._compute_loss(batch, extra_loss, **shard_state)
 
         return batch_stats
 
@@ -121,8 +121,9 @@ class LossComputeBase(nn.Module):
 
         i = 0
         for shard in shards(shard_state, shard_size):
-            print("i:", i++)
-            loss, stats = self._compute_loss(batch, **shard, extra_loss)
+            print("i:", i)
+            i += 1
+            loss, stats = self._compute_loss(batch, extra_loss, **shard)
             loss.div(normalization).backward(retain_graph=True)
             batch_stats.update(stats)
 
@@ -184,7 +185,7 @@ class NMTLossCompute(LossComputeBase):
             "target": batch.tgt[range_[0] + 1: range_[1]],
         }
 
-    def _compute_loss(self, batch, output, target, extra_loss):
+    def _compute_loss(self, batch, extra_loss, output, target):
         scores = self.generator(self._bottle(output))
 
         gtruth = target.view(-1)
@@ -198,7 +199,12 @@ class NMTLossCompute(LossComputeBase):
                 log_likelihood.index_fill_(0, mask, 0)
                 tmp_.index_fill_(0, mask, 0)
             gtruth = Variable(tmp_, requires_grad=False)
-        loss = self.criterion(scores, gtruth) + extra_loss
+        #loss = self.criterion(scores, gtruth) + extra_loss
+        loss = self.criterion(scores, gtruth)
+        print("oldloss:", loss.size())
+        print("oldloss:", loss)
+        print("extra_loss:", extra_loss.size())
+        print("extra_loss:", extra_loss)
         if self.confidence < 1:
             # Default: report smoothed ppl.
             # loss_data = -log_likelihood.sum(0)

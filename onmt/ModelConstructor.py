@@ -183,7 +183,8 @@ def make_base_model(model_opt, fields, gpu, checkpoint=None):
 
     # make variational Inference
     variationalInference = onmt.Models.VariationalInference(
-        model_opt.rnn_size, model_opt.latent_dim, model_opt.cluster_num) 
+        model_opt.rnn_size, model_opt.latent_dim, 
+        model_opt.cluster_num, model_opt.batch_size) 
 
     decoder = make_decoder(model_opt, tgt_embeddings)
 

@@ -85,7 +85,9 @@ class gaussianMixtureModel(Module):
             self.cluster_bias.data.uniform_(-stdv, stdv)
 
     def forward(self, z_mean, z_log_variance_sq, z):
+        print("z_mean:", z_mean.size(), "z_log_variance_sq:", z_log_variance_sq.size(), "z:", z.size())
         # shape
+        self.batch_size = z_mean.size()[0]
         cluster_mean_duplicate = self.cluster_mean.repeat(self.batch_size, 1, 1)
         cluster_variance_sq_duplicate = self.cluster_variance_sq.repeat(self.batch_size, 1, 1)
         cluster_prior_duplicate = self.cluster_prior.repeat(self.latent_dim, 1).repeat(self.batch_size, 1, 1)
@@ -95,8 +97,10 @@ class gaussianMixtureModel(Module):
         z_log_variance_sq_duplicate = z_log_variance_sq.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
         z_duplicate = z.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
         # prob
-        print("z_duplicate:", z_duplicate)
-        print("cluster_mean_duplicate:", cluster_mean_duplicate)
+        #print("z_duplicate:", z_duplicate)
+        #print("cluster_mean_duplicate:", cluster_mean_duplicate)
+        print("z_duplicate:", z_duplicate.size())
+        print("cluster_mean_duplicate:", cluster_mean_duplicate.size())
         #tmpa = cluster_mean_duplicate - z_log_variance_sq_duplicate.cuda()
         tmpa = z_duplicate - cluster_mean_duplicate
         tmpb = tmpa * tmpa
@@ -104,8 +108,8 @@ class gaussianMixtureModel(Module):
             - 0.5 * torch.log(2 * math.pi * cluster_variance_sq_duplicate) \
             - tmpb / (2 * cluster_variance_sq_duplicate)
         P_c_given_x_unnorm = torch.exp(sum_with_axis(terms, [1])) + 1e-10
-        print(P_c_given_x_unnorm)
-        print(sum_with_axis(P_c_given_x_unnorm, [-1]))
+        #print(P_c_given_x_unnorm)
+        #print(sum_with_axis(P_c_given_x_unnorm, [-1]))
         P_c_given_x = myMatrixDivVector(P_c_given_x_unnorm, \
             sum_with_axis(P_c_given_x_unnorm, [-1]))
 
@@ -126,16 +130,19 @@ class gaussianMixtureModel(Module):
         tmp7 = sum_with_axis(P_c_given_x * torch.log(cluster_prior_duplicate_2D), [1])
         third_term_KL_div = tmp6 - tmp7
         forth_term = 0.5 * sum_with_axis(z_log_variance_sq + 1, [1]) 
-        #tmp211 = second_term + third_term_KL_div
-        #tmp212 = third_term_KL_div + forth_term
-        loss_without_reconstruct = 0 - second_term + third_term_KL_div + forth_term
+        tmp211 = 0 - second_term + third_term_KL_div
+        print("tmp1:", tmp1.size(), "tmp2:", tmp2.size(), "tmp3:", tmp3.size(), "tmp4:", tmp4.size(), "tmp5:", tmp5.size(), "tmp6:", tmp6.size(), "tmp7:", tmp7.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "z_log_variance_sq:", z_log_variance_sq.size())
+        print("tmp211:", tmp211.size(), "forth_term:", forth_term.size())
+        tmp212 = tmp211 + forth_term
+        loss_without_reconstruct = tmp212
+        #loss_without_reconstruct = 0 - second_term + third_term_KL_div + forth_term
         nagetive_loss_without_reconstruct = 0 - loss_without_reconstruct
         return P_c_given_x, nagetive_loss_without_reconstruct
 
-    def extra_repr(self):
+    '''def extra_repr(self):
         return 'in_features={}, out_features={}, bias={}'.format(
             self.in_features, self.out_features, self.bias is not None
-        )
+        )'''
 
 latent_dim = 2
 cluster_num = 3
