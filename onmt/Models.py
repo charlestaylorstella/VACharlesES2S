@@ -108,19 +108,23 @@ class FCLayer(nn.Module):
 
 class VariationalInference(nn.Module):
      """ VariationalInference and GMM """
-     def __init__(self, encoder_dim, latent_dim, cluster_num, batch_size, fc_use_bias=True, multigpu=False):
-         self.multigpu = multigpu
+     def __init__(self, opt, fc_use_bias=True):
+         self.multigpu = opt.multigpu
          super(VariationalInference, self).__init__()
-         #self.encoder_dim = encoder_dim
-         #self.latent_dim = latent_dim
-         #self.cluster_num = cluster_num
          
-         self.fc_z_mean = FCLayer(encoder_dim, latent_dim)         
-         self.fc_z_log_variance_sq = FCLayer(encoder_dim, latent_dim)
-         self.gmm = gaussianMixtureModel.gaussianMixtureModel(latent_dim, cluster_num, batch_size)
-         #self.z_mean = ?
-         #self.z_log_variance_sq = ?      
-    
+         encoder_dim = opt.rnn_size
+         decoder_dim = opt.rnn_size
+         self.fc_z_mean = FCLayer(encoder_dim, opt.latent_dim)         
+         self.fc_z_log_variance_sq = FCLayer(encoder_dim, opt.latent_dim)
+         self.gmm = gaussianMixtureModel.gaussianMixtureModel(opt.latent_dim, opt.cluster_num, opt.batch_size)
+         self.use_gmm_output_fc = opt.use_gmm_output_fc
+         if self.use_gmm_output_fc:
+             self.fc_z_output = FCLayer(opt.latent_dim, decoder_dim)         
+         else:
+             if decoder_dim != opt.latent_dim:
+                 print("Error! If there is no transforming(FC) layer after GMM, Must keep decoder_dim and latent_dim equal. decoder_dim:", decoder_dim, "latent_dim:", opt.latent_dim)
+                 assert decoder_dim == opt.latent_dim
+
      def reparameter(self, mean, variance_sq):
          all_zero_mean = torch.zeros(mean.size()).cuda() # hard cpding
          all_one_var_squ = torch.ones(variance_sq.size()).cuda()
@@ -134,7 +138,7 @@ class VariationalInference(nn.Module):
          return mean + torch.exp(variance_sq / 2) * epsilon
 
      def forward(self, encoder_output):
-         encoder_output = encoder_output.view(encoder_output.size()[1:]) # eliminate first dimension (1*batch_size*dim) -> (batch_size*dim)
+         encoder_output = encoder_output.view(encoder_output.size()[1:]) # eliminate first dimension (1*batch_size*dim) -> (batch_size*dim). To adapt to the shape of nn.RNN/GRU/LSTM output
          z_mean = self.fc_z_mean(encoder_output)
          z_log_variance_sq = self.fc_z_log_variance_sq(encoder_output)
          z = self.reparameter(z_mean, z_log_variance_sq)
@@ -146,7 +150,10 @@ class VariationalInference(nn.Module):
          #z_duplicate4class = z.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
          
          P_c_given_x, loss_without_crossent = self.gmm(z_mean, z_log_variance_sq, z) 
-         print("P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
+         if self.use_gmm_output_fc:
+             z = self.fc_z_output(z)
+         z = z.view([1] + [i for i in z.size()]) # add first dimension (batch_size*dim) -> (1*batch_size*dim). To adapt to the shape of nn.RNN/GRU/LSTM output
+         print("z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
          
          return z, P_c_given_x, loss_without_crossent
 
@@ -617,12 +624,14 @@ class NMTModel(nn.Module):
       decoder (:obj:`RNNDecoderBase`): a decoder object
       multi<gpu (bool): setup for multigpu support
     """
-    def __init__(self, encoder, decoder, variationalInference, multigpu=False):
-        self.multigpu = multigpu
+    def __init__(self, encoder, decoder, variationalInference, model_option):
+        self.multigpu = model_option.multigpu
+        self.use_gmm = model_option.use_gmm
         super(NMTModel, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.variationalInference = variationalInference
+        if self.use_gmm:
+            self.variationalInference = variationalInference
 
     def forward(self, src, tgt, lengths, dec_state=None):
         """Forward propagate a `src` and `tgt` pair for training.
@@ -648,8 +657,16 @@ class NMTModel(nn.Module):
         tgt = tgt[:-1]  # exclude last target from inputs
 
         enc_final, memory_bank = self.encoder(src, lengths)
-        z, P, loss_without_crossent = self.variationalInference(enc_final)
-        z = enc_final
+        if self.use_gmm:
+            z, P, loss_without_crossent = self.variationalInference(enc_final)
+        else:
+            z = enc_final
+            P, loss_without_crossent = None, None
+        print("z:", z.size())
+        print("z:", z)
+        print("enc_final:", enc_final.size())
+        print("enc_final:", enc_final)
+       
         enc_state = \
             self.decoder.init_decoder_state(src, memory_bank, z)
         decoder_outputs, dec_state, attns = \

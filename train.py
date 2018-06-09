@@ -254,7 +254,7 @@ def train_model(model, fields, optim, data_type, model_opt):
         # 1. Train for one epoch on the training set.
         train_iter = make_dataset_iter(lazily_load_dataset("train"),
                                        fields, opt)
-        train_stats = trainer.train(train_iter, epoch, report_func)
+        train_stats = trainer.train(train_iter, epoch, model_opt, report_func)
         print('Train perplexity: %g' % train_stats.ppl())
         print('Train accuracy: %g' % train_stats.accuracy())
 
@@ -262,7 +262,7 @@ def train_model(model, fields, optim, data_type, model_opt):
         valid_iter = make_dataset_iter(lazily_load_dataset("valid"),
                                        fields, opt,
                                        is_train=False)
-        valid_stats = trainer.validate(valid_iter)
+        valid_stats = trainer.validate(valid_iter, model_opt)
         print('Validation perplexity: %g' % valid_stats.ppl())
         print('Validation accuracy: %g' % valid_stats.accuracy())
 

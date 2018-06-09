@@ -134,7 +134,7 @@ class Trainer(object):
         # Set model in training mode.
         self.model.train()
 
-    def train(self, train_iter, epoch, report_func=None):
+    def train(self, train_iter, epoch, model_opt, report_func=None):
         """ Train next epoch.
         Args:
             train_iter: training data iterator
@@ -175,7 +175,7 @@ class Trainer(object):
             if accum == self.grad_accum_count:
                 self._gradient_accumulation(
                         true_batchs, total_stats,
-                        report_stats, normalization)
+                        report_stats, normalization, model_opt)
 
                 if report_func is not None:
                     report_stats = report_func(
@@ -193,12 +193,12 @@ class Trainer(object):
         if len(true_batchs) > 0:
             self._gradient_accumulation(
                     true_batchs, total_stats,
-                    report_stats, normalization)
+                    report_stats, normalization, model_opt)
             true_batchs = []
 
         return total_stats
 
-    def validate(self, valid_iter):
+    def validate(self, valid_iter, model_opt):
         """ Validate model.
             valid_iter: validate data iterator
         Returns:
@@ -229,7 +229,7 @@ class Trainer(object):
 
             # Compute loss.
             batch_stats = self.valid_loss.monolithic_compute_loss(
-                    batch, outputs, attns, gmm_loss)
+                    batch, outputs, attns, gmm_loss, model_opt)
 
             # Update statistics.
             stats.update(batch_stats)
@@ -276,7 +276,7 @@ class Trainer(object):
                       valid_stats.ppl(), epoch))
 
     def _gradient_accumulation(self, true_batchs, total_stats,
-                               report_stats, normalization):
+                               report_stats, normalization, model_opt):
         if self.grad_accum_count > 1:
             self.model.zero_grad()
 
@@ -313,7 +313,8 @@ class Trainer(object):
                 # 3. Compute loss in shards for memory efficiency.
                 batch_stats = self.train_loss.sharded_compute_loss(
                         batch, outputs, attns, j,
-                        trunc_size, self.shard_size, normalization, gmm_loss)
+                        trunc_size, self.shard_size, normalization, \
+                        gmm_loss, model_opt)
 
                 # 4. Update the parameters and statistics.
                 if self.grad_accum_count == 1:

@@ -182,14 +182,18 @@ def make_base_model(model_opt, fields, gpu, checkpoint=None):
         tgt_embeddings.word_lut.weight = src_embeddings.word_lut.weight
 
     # make variational Inference
-    variationalInference = onmt.Models.VariationalInference(
-        model_opt.rnn_size, model_opt.latent_dim, 
-        model_opt.cluster_num, model_opt.batch_size) 
+    #variationalInference = onmt.Models.VariationalInference(
+    #    model_opt.rnn_size, model_opt.rnn_size, model_opt.latent_dim, 
+    #    model_opt.cluster_num, model_opt.batch_size) 
+    if model_opt.use_gmm:
+        variationalInference = onmt.Models.VariationalInference(model_opt)
+    else:
+        variationalInference = None
 
     decoder = make_decoder(model_opt, tgt_embeddings)
 
     # Make NMTModel(= encoder + decoder).
-    model = NMTModel(encoder, decoder, variationalInference)
+    model = NMTModel(encoder, decoder, variationalInference, model_opt)
     model.model_type = model_opt.model_type
 
     # Make Generator.
