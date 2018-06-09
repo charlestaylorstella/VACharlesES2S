@@ -146,6 +146,7 @@ class VariationalInference(nn.Module):
          #z_duplicate4class = z.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
          
          P_c_given_x, loss_without_crossent = self.gmm(z_mean, z_log_variance_sq, z) 
+         print("P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
          
          return z, P_c_given_x, loss_without_crossent
 
@@ -647,7 +648,7 @@ class NMTModel(nn.Module):
         tgt = tgt[:-1]  # exclude last target from inputs
 
         enc_final, memory_bank = self.encoder(src, lengths)
-        P, loss_without_crossent, z = self.variationalInference(enc_final)
+        z, P, loss_without_crossent = self.variationalInference(enc_final)
         z = enc_final
         enc_state = \
             self.decoder.init_decoder_state(src, memory_bank, z)
