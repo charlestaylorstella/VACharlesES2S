@@ -217,14 +217,19 @@ def make_base_model(model_opt, fields, gpu, checkpoint=None):
         if model_opt.param_init != 0.0:
             print('Intializing model parameters.')
             for p in model.parameters():
+                print("param_init p:", p)
                 p.data.uniform_(-model_opt.param_init, model_opt.param_init)
+                print("after param_init p:", p)
             for p in generator.parameters():
+                print("generator param_init p:", p)
                 p.data.uniform_(-model_opt.param_init, model_opt.param_init)
         if model_opt.param_init_glorot:
             for p in model.parameters():
+                print("param_init_glorot p:", p)
                 if p.dim() > 1:
                     xavier_uniform(p)
             for p in generator.parameters():
+                print("generator param_init_glorot p:", p)
                 if p.dim() > 1:
                     xavier_uniform(p)
 

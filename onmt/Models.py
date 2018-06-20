@@ -114,9 +114,12 @@ class VariationalInference(nn.Module):
          
          encoder_dim = opt.rnn_size
          decoder_dim = opt.rnn_size
+         self.opt = opt
+         
          self.fc_z_mean = FCLayer(encoder_dim, opt.latent_dim)         
          self.fc_z_log_variance_sq = FCLayer(encoder_dim, opt.latent_dim)
-         self.gmm = gaussianMixtureModel.gaussianMixtureModel(opt.latent_dim, opt.cluster_num, opt.batch_size)
+         self.gmm = gaussianMixtureModel.gaussianMixtureModel(opt.latent_dim, opt.cluster_num, opt.batch_size, opt)
+         print("in init var out print gmm cluster_prior:", self.gmm.cluster_prior)
          self.use_gmm_output_fc = opt.use_gmm_output_fc
          if self.use_gmm_output_fc:
              self.fc_z_output = FCLayer(opt.latent_dim, decoder_dim)         
@@ -126,7 +129,7 @@ class VariationalInference(nn.Module):
                  assert decoder_dim == opt.latent_dim
 
      def reparameter(self, mean, variance_sq):
-         all_zero_mean = torch.zeros(mean.size()).cuda() # hard cpding
+         all_zero_mean = torch.zeros(mean.size()).cuda() # hard coding
          all_one_var_squ = torch.ones(variance_sq.size()).cuda()
          epsilon = torch.normal(all_zero_mean, all_one_var_squ)
          #a = variance_sq / 2
@@ -138,22 +141,56 @@ class VariationalInference(nn.Module):
          return mean + torch.exp(variance_sq / 2) * epsilon
 
      def forward(self, encoder_output):
+         print("0 out print gmm cluster_prior:", self.gmm.cluster_prior)
+         if self.opt.debug_mode >= 2:
+             print("encoder_output size:", encoder_output.size())
+         if self.opt.debug_mode >= 3:
+             print("encoder_output:", encoder_output)
          encoder_output = encoder_output.view(encoder_output.size()[1:]) # eliminate first dimension (1*batch_size*dim) -> (batch_size*dim). To adapt to the shape of nn.RNN/GRU/LSTM output
+
+         if self.opt.debug_mode >= 6:
+             print("encoder_output after reshape size:", encoder_output.size())
+         if self.opt.debug_mode >= 6:
+             print("encoder_output after reshape:", encoder_output)
+
          z_mean = self.fc_z_mean(encoder_output)
+         if self.opt.debug_mode >= 2:
+             print("z_mean after fc size:", z_mean.size())
+         if self.opt.debug_mode >= 3:
+             print("z_mean after fc:", z_mean)
+         
          z_log_variance_sq = self.fc_z_log_variance_sq(encoder_output)
+         if self.opt.debug_mode >= 2:
+             print("z_log_variance_sq after fc size:", z_log_variance_sq.size())
+         if self.opt.debug_mode >= 3:
+             print("z_log_variance_sq after fc:", z_log_variance_sq)
+         
          z = self.reparameter(z_mean, z_log_variance_sq)
+         if self.opt.debug_mode >= 2:
+             print("z after reparameter size:", z.size())
+         if self.opt.debug_mode >= 3:
+             print("z after reparameter:", z)
+         
          #return z_mean, z_log_variance_sq, z
          
          # repeat for category
          #z_mean_duplicate4class = z_mean.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
          #z_log_variance_sq_duplicate4class = z_log_variance_sq.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
          #z_duplicate4class = z.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
-         
+         print("out print gmm cluster_prior:", self.gmm.cluster_prior)
          P_c_given_x, loss_without_crossent = self.gmm(z_mean, z_log_variance_sq, z) 
+         if self.opt.debug_mode >= 6:
+             print("after gmm before reshape size z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
+         if self.opt.debug_mode >= 6:
+             print("after gmm before reshape z:", z, "P_c_given_x:", P_c_given_x, "loss_without_crossent:", loss_without_crossent)
+         
          if self.use_gmm_output_fc:
              z = self.fc_z_output(z)
          z = z.view([1] + [i for i in z.size()]) # add first dimension (batch_size*dim) -> (1*batch_size*dim). To adapt to the shape of nn.RNN/GRU/LSTM output
-         print("z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
+         if self.opt.debug_mode >= 2:
+             print("variational output size z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
+         if self.opt.debug_mode >= 3:
+             print("variational output z:", z, "P_c_given_x:", P_c_given_x, "loss_without_crossent:", loss_without_crossent)
          
          return z, P_c_given_x, loss_without_crossent
 
@@ -217,10 +254,10 @@ class RNNEncoder(EncoderBase):
             #print("self.use_bridge in encoder")
             encoder_final = self._bridge(encoder_final)
         #print("encoder_final:", encoder_final)
-        print("encoder_final0 shape:", encoder_final[0].size())
+        #print("encoder_final0 shape:", encoder_final[0].size())
         #print("encoder_final1 shape:", encoder_final[1].size())
         #print("memory_bank:", memory_bank)
-        print("memory_bank0 shape:", memory_bank[0].size())
+        #print("memory_bank0 shape:", memory_bank[0].size())
         #print("memory_bank1 shape:", memory_bank[1].size())
         #encoder_final = torch.print_tensor(encoder_final, message="encoder_final is :")
         return encoder_final, memory_bank
@@ -659,13 +696,13 @@ class NMTModel(nn.Module):
         enc_final, memory_bank = self.encoder(src, lengths)
         if self.use_gmm:
             z, P, loss_without_crossent = self.variationalInference(enc_final)
+            print("z:", z.size())
+            print("z:", z)
+            print("enc_final:", enc_final.size())
+            print("enc_final:", enc_final)
         else:
             z = enc_final
             P, loss_without_crossent = None, None
-        print("z:", z.size())
-        print("z:", z)
-        print("enc_final:", enc_final.size())
-        print("enc_final:", enc_final)
        
         enc_state = \
             self.decoder.init_decoder_state(src, memory_bank, z)

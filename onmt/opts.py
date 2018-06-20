@@ -73,12 +73,14 @@ def model_opts(parser):
                        help='Dimension of latent states')
     group.add_argument('-use_gmm', type=int, default=1,
                        help='Use GMM of not. 1: use 0: not')
-    group.add_argument('-cluster_num', type=int, default=110,
+    group.add_argument('-cluster_num', type=int, default=1,
                        help='Number of cluster of GMM')
     group.add_argument('-use_gmm_output_fc', type=bool, default=False,
                        help='Use a FC layer after GMM (before decoder) or not')
     group.add_argument('-multigpu', type=bool, default=False,
                        help='multiple device GPU')
+    group.add_argument('-debug_mode', type=int, default=4,
+                       help='debug mode')
     group.add_argument('-cnn_kernel_width', type=int, default=3,
                        help="""Size of windows in the cnn, the kernel_size is
                        (cnn_kernel_width, 1) in conv layer""")
