@@ -79,7 +79,7 @@ def model_opts(parser):
                        help='Use a FC layer after GMM (before decoder) or not')
     group.add_argument('-multigpu', type=bool, default=False,
                        help='multiple device GPU')
-    group.add_argument('-debug_mode', type=int, default=4,
+    group.add_argument('-debug_mode', type=int, default=5,
                        help='debug mode')
     group.add_argument('-cnn_kernel_width', type=int, default=3,
                        help="""Size of windows in the cnn, the kernel_size is

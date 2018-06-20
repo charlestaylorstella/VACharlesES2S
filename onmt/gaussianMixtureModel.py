@@ -67,7 +67,7 @@ class gaussianMixtureModel(Module):
         #weight4loss = torch.ones(target_dict_size) 
         #self.cross_entropy_loss = nn.NLLLoss(weight, size_average=False)
         self.cluster_mean = Parameter(torch.Tensor(latent_dim, cluster_num))
-        self.cluster_variance_sq = Parameter(torch.Tensor(latent_dim, cluster_num))
+        self.cluster_variance_sq_unnorm = Parameter(torch.Tensor(latent_dim, cluster_num))
         self.cluster_prior = Parameter(torch.Tensor(cluster_num))
         if bias:
             self.cluster_bias = Parameter(torch.Tensor(cluster_num))
@@ -79,7 +79,7 @@ class gaussianMixtureModel(Module):
     def reset_parameters(self):
         stdv = 1. / math.sqrt(self.cluster_num)
         torch.nn.init.constant_(self.cluster_mean, 0)
-        torch.nn.init.constant_(self.cluster_variance_sq, 1.0)
+        torch.nn.init.constant_(self.cluster_variance_sq_unnorm, 1.0)
         torch.nn.init.constant_(self.cluster_prior, 1.0 / self.cluster_num)
         print("in reset_parameters init cluster_prior:", self.cluster_prior)
         #self.cluster_mean.data.constant_(0)
@@ -93,19 +93,21 @@ class gaussianMixtureModel(Module):
     def forward(self, z_mean, z_log_variance_sq, z):
         if self.is_first_ff:
             torch.nn.init.constant_(self.cluster_mean, 0)
-            torch.nn.init.constant_(self.cluster_variance_sq, 1.0)
+            torch.nn.init.constant_(self.cluster_variance_sq_unnorm, 1.0)
             torch.nn.init.constant_(self.cluster_prior, 1.0 / self.cluster_num)
             self.is_first_ff = False
-        if self.opt != None and self.opt.debug_mode == 4:
+        if self.opt != None and self.opt.debug_mode >= 4:
             print("ff cluster_prior:", self.cluster_prior)
             print("ff cluster_mean:", self.cluster_mean)
-            print("ff cluster_variance_sq:", self.cluster_variance_sq)
+            print("ff cluster_variance_sq_unnorm:", self.cluster_variance_sq_unnorm)
         #print("z_mean:", z_mean.size(), "z_log_variance_sq:", z_log_variance_sq.size(), "z:", z.size())
         # shape
         self.batch_size = z_mean.size()[0]
         cluster_mean_duplicate = self.cluster_mean.repeat(self.batch_size, 1, 1)
-        cluster_variance_sq_duplicate = self.cluster_variance_sq.repeat(self.batch_size, 1, 1)
         cluster_prior_prob = torch.nn.functional.sigmoid(self.cluster_prior)
+        cluster_variance_sq = torch.nn.functional.sigmoid(self.cluster_variance_sq_unnorm)
+        #cluster_variance_sq = torch.nn.functional.relu(self.cluster_variance_sq_unnorm) # soft relu is the best
+        cluster_variance_sq_duplicate = cluster_variance_sq.repeat(self.batch_size, 1, 1)
         cluster_prior_duplicate = cluster_prior_prob.repeat(self.latent_dim, 1).repeat(self.batch_size, 1, 1)
         cluster_prior_duplicate_2D = cluster_prior_prob.repeat(self.batch_size, 1)
         
@@ -115,7 +117,7 @@ class gaussianMixtureModel(Module):
         # prob
         #print("z_duplicate:", z_duplicate)
         #print("cluster_mean_duplicate:", cluster_mean_duplicate)
-        if self.opt != None and self.opt.debug_mode == 3:
+        if self.opt != None and self.opt.debug_mode >= 3:
             print("z_duplicate size:", z_duplicate.size())
             print("z_mean_duplicate size:", z_mean_duplicate.size())
             print("z_log_variance_sq_duplicate size:", z_log_variance_sq_duplicate.size())
@@ -124,7 +126,7 @@ class gaussianMixtureModel(Module):
             print("cluster_variance_sq_duplicate size:", cluster_variance_sq_duplicate.size())
             print("cluster_prior_duplicate size:", cluster_prior_duplicate.size())
             print("cluster_prior_duplicate_2D size:", cluster_prior_duplicate_2D.size())
-        if self.opt != None and self.opt.debug_mode == 4:
+        if self.opt != None and self.opt.debug_mode >= 4:
             print("z_duplicate:", z_duplicate)
             print("z_mean_duplicate:", z_mean_duplicate)
             print("z_log_variance_sq_duplicate:", z_log_variance_sq_duplicate)
@@ -170,13 +172,13 @@ class gaussianMixtureModel(Module):
         #loss_without_reconstruct = 0 - second_term + third_term_KL_div + forth_term
         nagetive_loss_without_reconstruct = 0 - loss_without_reconstruct
         
-        if self.opt != None and self.opt.debug_mode == 3:
+        if self.opt != None and self.opt.debug_mode >= 3:
             print("size terms:", terms.size(), "P_c_given_x_unnorm:", P_c_given_x_unnorm.size(), "P_c_given_x", P_c_given_x.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "forth_term:", forth_term.size(), "nagetive_loss_without_reconstruct:", nagetive_loss_without_reconstruct.size())
             print("tmp1:", tmp1.size(), "tmp2:", tmp2.size(), "tmp3:", tmp3.size(), "tmp4:", tmp4.size(), "tmp5:", tmp5.size(), "tmp6:", tmp6.size(), "tmp7:", tmp7.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "z_log_variance_sq:", z_log_variance_sq.size())
             print("tmp211:", tmp211.size(), "forth_term:", forth_term.size())
-        if self.opt != None and self.opt.debug_mode == 5:
-            print("")
-        if self.opt != None and self.opt.debug_mode == 4:
+        if self.opt != None and self.opt.debug_mode >= 5:
+            print("sum_with_axis(terms, [1]):", sum_with_axis(terms, [1]))
+        if self.opt != None and self.opt.debug_mode >= 4:
             print("terms:", terms, "P_c_given_x_unnorm:", P_c_given_x_unnorm, "P_c_given_x", P_c_given_x, "second_term:", second_term, "third_term_KL_div:", third_term_KL_div, "forth_term:", forth_term, "nagetive_loss_without_reconstruct:", nagetive_loss_without_reconstruct)
             print("tmp1:", tmp1, "tmp2:", tmp2, "tmp3:", tmp3, "tmp4:", tmp4, "tmp5:", tmp5, "tmp6:", tmp6, "tmp7:", tmp7, "second_term:", second_term, "third_term_KL_div:", third_term_KL_div, "z_log_variance_sq:", z_log_variance_sq)
             print("tmp211:", tmp211, "forth_term:", forth_term)
