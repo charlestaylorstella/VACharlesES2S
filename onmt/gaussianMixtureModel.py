@@ -92,9 +92,10 @@ class gaussianMixtureModel(Module):
 
     def forward(self, z_mean, z_log_variance_sq, z):
         if self.is_first_ff:
+            inverse_sigmoid = lambda x : 0 - numpy.log(1/x - 1)
             torch.nn.init.constant_(self.cluster_mean, 0)
-            torch.nn.init.constant_(self.cluster_variance_sq_unnorm, 1.0)
-            torch.nn.init.constant_(self.cluster_prior, 1.0 / self.cluster_num)
+            torch.nn.init.constant_(self.cluster_variance_sq_unnorm, inverse_sigmoid(0.99))
+            torch.nn.init.constant_(self.cluster_prior, inverse_sigmoid(1.0 / self.cluster_num))
             self.is_first_ff = False
         if self.opt != None and self.opt.debug_mode >= 4:
             print("ff cluster_prior:", self.cluster_prior)
@@ -106,6 +107,8 @@ class gaussianMixtureModel(Module):
         cluster_mean_duplicate = self.cluster_mean.repeat(self.batch_size, 1, 1)
         cluster_prior_prob = torch.nn.functional.sigmoid(self.cluster_prior)
         cluster_variance_sq = torch.nn.functional.sigmoid(self.cluster_variance_sq_unnorm)
+        #cluster_prior_prob = self.cluster_prior
+        #cluster_variance_sq = self.cluster_variance_sq_unnorm
         #cluster_variance_sq = torch.nn.functional.relu(self.cluster_variance_sq_unnorm) # soft relu is the best
         cluster_variance_sq_duplicate = cluster_variance_sq.repeat(self.batch_size, 1, 1)
         cluster_prior_duplicate = cluster_prior_prob.repeat(self.latent_dim, 1).repeat(self.batch_size, 1, 1)
@@ -152,7 +155,9 @@ class gaussianMixtureModel(Module):
         # loss
         P_c_given_x_duplicate = P_c_given_x.repeat(self.latent_dim, 1, 1).permute(1, 0, 2)
         #cross_entropy_loss = alpha * self.input_data_dim * self.cross_entropy_loss()
-        tmp1 = 0.5 * P_c_given_x_duplicate * (self.latent_dim * math.log(math.pi * 2))
+        factor1 = 0.5 * P_c_given_x_duplicate
+        #tmp1 = self.latent_dim * math.log(math.pi * 2)
+        tmp1 = 0
         tmp2 = torch.log(cluster_variance_sq_duplicate)
         tmp3 = torch.exp(z_log_variance_sq_duplicate) / cluster_variance_sq_duplicate
         tmp4 = z_mean_duplicate - cluster_mean_duplicate
@@ -161,27 +166,34 @@ class gaussianMixtureModel(Module):
         #tmp112 = tmp111 + tmp3
         #tmp113 = tmp112 + tmp5
         #second_term = sum_with_axis(tmp113, [1, 2])
-        second_term = sum_with_axis(tmp1 + tmp2 + tmp3 + tmp5, [1, 2])
+        second_term_unfold = factor1 * (tmp1 + tmp2 + tmp3 + tmp5)
+        second_term = sum_with_axis(second_term_unfold, [1, 2])
         tmp6 = sum_with_axis(P_c_given_x * torch.log(P_c_given_x), [1])
         tmp7 = sum_with_axis(P_c_given_x * torch.log(cluster_prior_duplicate_2D), [1])
-        third_term_KL_div = tmp6 - tmp7
+        third_term_KL_div = tmp7 - tmp6
+        #third_term_KL_div = tmp6 - tmp7
         forth_term = 0.5 * sum_with_axis(z_log_variance_sq + 1, [1]) 
-        tmp211 = 0 - second_term + third_term_KL_div
-        tmp212 = tmp211 + forth_term
-        loss_without_reconstruct = tmp212
+        loss_without_reconstruct = 0 - second_term + third_term_KL_div + forth_term
+        #tmp212 = tmp211 + forth_term
+        #loss_without_reconstruct = tmp212
         #loss_without_reconstruct = 0 - second_term + third_term_KL_div + forth_term
         nagetive_loss_without_reconstruct = 0 - loss_without_reconstruct
         
         if self.opt != None and self.opt.debug_mode >= 3:
-            print("size terms:", terms.size(), "P_c_given_x_unnorm:", P_c_given_x_unnorm.size(), "P_c_given_x", P_c_given_x.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "forth_term:", forth_term.size(), "nagetive_loss_without_reconstruct:", nagetive_loss_without_reconstruct.size())
-            print("tmp1:", tmp1.size(), "tmp2:", tmp2.size(), "tmp3:", tmp3.size(), "tmp4:", tmp4.size(), "tmp5:", tmp5.size(), "tmp6:", tmp6.size(), "tmp7:", tmp7.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "z_log_variance_sq:", z_log_variance_sq.size())
-            print("tmp211:", tmp211.size(), "forth_term:", forth_term.size())
+            print("size terms:", terms.size(), "P_c_given_x_duplicate:", P_c_given_x_duplicate.size(), "P_c_given_x_unnorm:", P_c_given_x_unnorm.size(), "P_c_given_x", P_c_given_x.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "forth_term:", forth_term.size(), "nagetive_loss_without_reconstruct:", nagetive_loss_without_reconstruct.size())
+            print("tmp2:", tmp2.size(), "tmp3:", tmp3.size(), "tmp4:", tmp4.size(), "tmp5:", tmp5.size(), "tmp6:", tmp6.size(), "tmp7:", tmp7.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "z_log_variance_sq:", z_log_variance_sq.size())
+            #print("tmp211:", tmp211.size(), "forth_term:", forth_term.size())
         if self.opt != None and self.opt.debug_mode >= 5:
             print("sum_with_axis(terms, [1]):", sum_with_axis(terms, [1]))
+            print("tmpa:", tmpa)
+            print("tmpb:", tmpb)
+            print("tmpb / (2 * cluster_variance_sq_duplicate):", tmpb / (2 * cluster_variance_sq_duplicate))
+            print("torch.log(cluster_prior_duplicate):", torch.log(cluster_prior_duplicate))
+            print("0.5 * torch.log(2 * math.pi * cluster_variance_sq_duplicate):", 0.5 * torch.log(2 * math.pi * cluster_variance_sq_duplicate))
         if self.opt != None and self.opt.debug_mode >= 4:
-            print("terms:", terms, "P_c_given_x_unnorm:", P_c_given_x_unnorm, "P_c_given_x", P_c_given_x, "second_term:", second_term, "third_term_KL_div:", third_term_KL_div, "forth_term:", forth_term, "nagetive_loss_without_reconstruct:", nagetive_loss_without_reconstruct)
+            print("terms:", terms, "P_c_given_x_duplicate:", P_c_given_x_duplicate, "P_c_given_x_unnorm:", P_c_given_x_unnorm, "P_c_given_x", P_c_given_x, "second_term:", second_term, "third_term_KL_div:", third_term_KL_div, "forth_term:", forth_term, "nagetive_loss_without_reconstruct:", nagetive_loss_without_reconstruct)
             print("tmp1:", tmp1, "tmp2:", tmp2, "tmp3:", tmp3, "tmp4:", tmp4, "tmp5:", tmp5, "tmp6:", tmp6, "tmp7:", tmp7, "second_term:", second_term, "third_term_KL_div:", third_term_KL_div, "z_log_variance_sq:", z_log_variance_sq)
-            print("tmp211:", tmp211, "forth_term:", forth_term)
+            #print("tmp211:", tmp211, "forth_term:", forth_term)
         return P_c_given_x, nagetive_loss_without_reconstruct
 
     '''def extra_repr(self):

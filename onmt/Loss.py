@@ -210,6 +210,8 @@ class NMTLossCompute(LossComputeBase):
             print("extra_loss:", extra_loss)
             print("sumof_extra_loss:", sumof_extra_loss)
             loss = loss + sumof_extra_loss 
+            #loss = loss 
+            #loss = loss + 0.00001 * sumof_extra_loss 
         print("new loss:", loss)
         #loss = self.criterion(scores, gtruth)
         if self.confidence < 1:

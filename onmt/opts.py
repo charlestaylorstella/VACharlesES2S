@@ -73,7 +73,7 @@ def model_opts(parser):
                        help='Dimension of latent states')
     group.add_argument('-use_gmm', type=int, default=1,
                        help='Use GMM of not. 1: use 0: not')
-    group.add_argument('-cluster_num', type=int, default=1,
+    group.add_argument('-cluster_num', type=int, default=3,
                        help='Number of cluster of GMM')
     group.add_argument('-use_gmm_output_fc', type=bool, default=False,
                        help='Use a FC layer after GMM (before decoder) or not')
