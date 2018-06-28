@@ -188,7 +188,8 @@ class NMTLossCompute(LossComputeBase):
     def _compute_loss(self, batch, extra_loss, model_opt, output, target):
         scores = self.generator(self._bottle(output))
 
-        print("target original size:", target.size())
+        if model_opt.debug_mode >= 6:
+            print("target original size:", target.size())
         gtruth = target.view(-1)
         if self.confidence < 1:
             tdata = gtruth.data
@@ -201,18 +202,21 @@ class NMTLossCompute(LossComputeBase):
                 tmp_.index_fill_(0, mask, 0)
             gtruth = Variable(tmp_, requires_grad=False)
         loss = self.criterion(scores, gtruth)
-        print("scores before loss:", scores.size(), "gtruth before loss:", gtruth.size())
-        print("oldloss:", loss.size())
-        print("oldloss:", loss)
+        if model_opt.debug_mode >= 2:
+            print("scores before loss:", scores.size(), "gtruth before loss:", gtruth.size())
+            print("oldloss:", loss.size())
+            print("oldloss:", loss)
         if model_opt.use_gmm == 1:
             sumof_extra_loss = torch.sum(extra_loss)
-            print("extra_loss:", extra_loss.size())
-            print("extra_loss:", extra_loss)
-            print("sumof_extra_loss:", sumof_extra_loss)
+            if model_opt.debug_mode >= 2:
+                print("extra_loss:", extra_loss.size())
+                print("extra_loss:", extra_loss)
+                print("sumof_extra_loss:", sumof_extra_loss)
             loss = loss + sumof_extra_loss 
             #loss = loss 
             #loss = loss + 0.00001 * sumof_extra_loss 
-        print("new loss:", loss)
+        if model_opt.debug_mode >= 2:
+            print("new loss:", loss)
         #loss = self.criterion(scores, gtruth)
         if self.confidence < 1:
             # Default: report smoothed ppl.

@@ -77,9 +77,13 @@ def model_opts(parser):
                        help='Number of cluster of GMM')
     group.add_argument('-use_gmm_output_fc', type=bool, default=False,
                        help='Use a FC layer after GMM (before decoder) or not')
+    group.add_argument('-use_normalize_in_gmm', type=bool, default=False,
+                       help='Use a normalize function in gmm to transform the score to probabilty')
+    group.add_argument('-lambda_for_loss', type=float, default=1.0,
+                       help='balance for two losses')
     group.add_argument('-multigpu', type=bool, default=False,
                        help='multiple device GPU')
-    group.add_argument('-debug_mode', type=int, default=5,
+    group.add_argument('-debug_mode', type=int, default=6,
                        help='debug mode')
     group.add_argument('-cnn_kernel_width', type=int, default=3,
                        help="""Size of windows in the cnn, the kernel_size is

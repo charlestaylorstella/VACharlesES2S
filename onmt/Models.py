@@ -141,7 +141,6 @@ class VariationalInference(nn.Module):
          return mean + torch.exp(variance_sq / 2) * epsilon
 
      def forward(self, encoder_output):
-         print("0 out print gmm cluster_prior:", self.gmm.cluster_prior)
          if self.opt.debug_mode >= 2:
              print("encoder_output size:", encoder_output.size())
          if self.opt.debug_mode >= 3:
@@ -149,8 +148,8 @@ class VariationalInference(nn.Module):
          encoder_output = encoder_output.view(encoder_output.size()[1:]) # eliminate first dimension (1*batch_size*dim) -> (batch_size*dim). To adapt to the shape of nn.RNN/GRU/LSTM output
 
          if self.opt.debug_mode >= 6:
+             print("0 out print gmm cluster_prior:", self.gmm.cluster_prior)
              print("encoder_output after reshape size:", encoder_output.size())
-         if self.opt.debug_mode >= 6:
              print("encoder_output after reshape:", encoder_output)
 
          z_mean = self.fc_z_mean(encoder_output)
@@ -177,7 +176,7 @@ class VariationalInference(nn.Module):
          #z_mean_duplicate4class = z_mean.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
          #z_log_variance_sq_duplicate4class = z_log_variance_sq.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
          #z_duplicate4class = z.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
-         print("out print gmm cluster_prior:", self.gmm.cluster_prior)
+         #print("out print gmm cluster_prior:", self.gmm.cluster_prior)
          P_c_given_x, loss_without_crossent = self.gmm(z_mean, z_log_variance_sq, z) 
          if self.opt.debug_mode >= 6:
              print("after gmm before reshape size z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
@@ -664,6 +663,7 @@ class NMTModel(nn.Module):
     def __init__(self, encoder, decoder, variationalInference, model_option):
         self.multigpu = model_option.multigpu
         self.use_gmm = model_option.use_gmm
+        self.opt = model_option
         super(NMTModel, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -696,10 +696,11 @@ class NMTModel(nn.Module):
         enc_final, memory_bank = self.encoder(src, lengths)
         if self.use_gmm:
             z, P, loss_without_crossent = self.variationalInference(enc_final)
-            print("z:", z.size())
-            print("z:", z)
-            print("enc_final:", enc_final.size())
-            print("enc_final:", enc_final)
+            if self.opt.debug_mode >= 4:
+                print("z:", z.size())
+                print("z:", z)
+                print("enc_final:", enc_final.size())
+                print("enc_final:", enc_final)
         else:
             z = enc_final
             P, loss_without_crossent = None, None

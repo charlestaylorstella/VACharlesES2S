@@ -78,12 +78,12 @@ class gaussianMixtureModel(Module):
 
     def reset_parameters(self):
         stdv = 1. / math.sqrt(self.cluster_num)
-        torch.nn.init.constant_(self.cluster_mean, 0)
+        #torch.nn.init.constant_(self.cluster_mean, 0)
         torch.nn.init.constant_(self.cluster_variance_sq_unnorm, 1.0)
         torch.nn.init.constant_(self.cluster_prior, 1.0 / self.cluster_num)
         print("in reset_parameters init cluster_prior:", self.cluster_prior)
         #self.cluster_mean.data.constant_(0)
-        #self.cluster_mean.data.uniform_(-stdv, stdv)
+        self.cluster_mean.data.uniform_(-stdv, stdv)
         #self.cluster_variance_sq.data.constant_(1.0)
         #self.cluster_prior.data.uniform_(-stdv, stdv)
         #self.cluster_prior.data.constant_(1.0 / self.cluster_num)
@@ -93,23 +93,32 @@ class gaussianMixtureModel(Module):
     def forward(self, z_mean, z_log_variance_sq, z):
         if self.is_first_ff:
             inverse_sigmoid = lambda x : 0 - numpy.log(1/x - 1)
-            torch.nn.init.constant_(self.cluster_mean, 0)
-            torch.nn.init.constant_(self.cluster_variance_sq_unnorm, inverse_sigmoid(0.99))
-            torch.nn.init.constant_(self.cluster_prior, inverse_sigmoid(1.0 / self.cluster_num))
+            #torch.nn.init.constant_(self.cluster_mean, 0)
+            stdv = 1. / math.sqrt(self.cluster_num) 
+            self.cluster_mean.data.uniform_(-stdv, stdv)
+            if self.opt != None and self.opt.use_normalize_in_gmm:
+                torch.nn.init.constant_(self.cluster_variance_sq_unnorm, inverse_sigmoid(0.99))
+                torch.nn.init.constant_(self.cluster_prior, inverse_sigmoid(1.0 / self.cluster_num))
+            else:
+                torch.nn.init.constant_(self.cluster_variance_sq_unnorm, stdv)
+                #torch.nn.init.constant_(self.cluster_variance_sq_unnorm, 1)
+                torch.nn.init.constant_(self.cluster_prior, 1.0 / self.cluster_num)
             self.is_first_ff = False
         if self.opt != None and self.opt.debug_mode >= 4:
-            print("ff cluster_prior:", self.cluster_prior)
-            print("ff cluster_mean:", self.cluster_mean)
-            print("ff cluster_variance_sq_unnorm:", self.cluster_variance_sq_unnorm)
+            print("cluster_prior:", self.cluster_prior)
+            print("cluster_mean:", self.cluster_mean)
+            print("cluster_variance_sq_unnorm:", self.cluster_variance_sq_unnorm)
         #print("z_mean:", z_mean.size(), "z_log_variance_sq:", z_log_variance_sq.size(), "z:", z.size())
         # shape
         self.batch_size = z_mean.size()[0]
         cluster_mean_duplicate = self.cluster_mean.repeat(self.batch_size, 1, 1)
-        cluster_prior_prob = torch.nn.functional.sigmoid(self.cluster_prior)
-        cluster_variance_sq = torch.nn.functional.sigmoid(self.cluster_variance_sq_unnorm)
-        #cluster_prior_prob = self.cluster_prior
-        #cluster_variance_sq = self.cluster_variance_sq_unnorm
-        #cluster_variance_sq = torch.nn.functional.relu(self.cluster_variance_sq_unnorm) # soft relu is the best
+        if self.opt != None and self.opt.use_normalize_in_gmm:
+            cluster_prior_prob = torch.nn.functional.sigmoid(self.cluster_prior)
+            cluster_variance_sq = torch.nn.functional.sigmoid(self.cluster_variance_sq_unnorm)
+            #cluster_variance_sq = torch.nn.functional.relu(self.cluster_variance_sq_unnorm) # soft relu is the best
+        else:
+            cluster_prior_prob = self.cluster_prior
+            cluster_variance_sq = self.cluster_variance_sq_unnorm
         cluster_variance_sq_duplicate = cluster_variance_sq.repeat(self.batch_size, 1, 1)
         cluster_prior_duplicate = cluster_prior_prob.repeat(self.latent_dim, 1).repeat(self.batch_size, 1, 1)
         cluster_prior_duplicate_2D = cluster_prior_prob.repeat(self.batch_size, 1)
@@ -121,6 +130,9 @@ class gaussianMixtureModel(Module):
         #print("z_duplicate:", z_duplicate)
         #print("cluster_mean_duplicate:", cluster_mean_duplicate)
         if self.opt != None and self.opt.debug_mode >= 3:
+            print("z size:", z.size())
+            print("z_mean size:", z_mean.size())
+            print("z_log_variance_sq size:", z_log_variance_sq.size())
             print("z_duplicate size:", z_duplicate.size())
             print("z_mean_duplicate size:", z_mean_duplicate.size())
             print("z_log_variance_sq_duplicate size:", z_log_variance_sq_duplicate.size())
@@ -130,6 +142,9 @@ class gaussianMixtureModel(Module):
             print("cluster_prior_duplicate size:", cluster_prior_duplicate.size())
             print("cluster_prior_duplicate_2D size:", cluster_prior_duplicate_2D.size())
         if self.opt != None and self.opt.debug_mode >= 4:
+            print("z:", z)
+            print("z_mean:", z_mean)
+            print("z_log_variance_sq:", z_log_variance_sq)
             print("z_duplicate:", z_duplicate)
             print("z_mean_duplicate:", z_mean_duplicate)
             print("z_log_variance_sq_duplicate:", z_log_variance_sq_duplicate)
@@ -177,6 +192,7 @@ class gaussianMixtureModel(Module):
         #tmp212 = tmp211 + forth_term
         #loss_without_reconstruct = tmp212
         #loss_without_reconstruct = 0 - second_term + third_term_KL_div + forth_term
+        
         nagetive_loss_without_reconstruct = 0 - loss_without_reconstruct
         
         if self.opt != None and self.opt.debug_mode >= 3:
@@ -204,7 +220,7 @@ class gaussianMixtureModel(Module):
 latent_dim = 2
 cluster_num = 3
 batch_size = 4
-opt = {"debug_mode":4}
+opt = {"debug_mode":4, "use_normalize_in_gmm":True}
 gmm = gaussianMixtureModel(latent_dim, cluster_num, batch_size)
 
 z_mean = torch.rand(batch_size, latent_dim)
