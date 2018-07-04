@@ -72,14 +72,14 @@ def model_opts(parser):
     group.add_argument('-latent_dim', type=int, default=500,
                        help='Dimension of latent states')
     group.add_argument('-use_gmm', type=int, default=1,
-                       help='Use GMM of not. 1: use 0: not')
+                       help='Use GMM of not. 1: gmm 2: vae 0: not')
     group.add_argument('-cluster_num', type=int, default=3,
                        help='Number of cluster of GMM')
     group.add_argument('-use_gmm_output_fc', type=bool, default=False,
                        help='Use a FC layer after GMM (before decoder) or not')
-    group.add_argument('-use_normalize_in_gmm', type=bool, default=False,
+    group.add_argument('-use_normalize_in_gmm', type=bool, default=True,
                        help='Use a normalize function in gmm to transform the score to probabilty')
-    group.add_argument('-lambda_for_loss', type=float, default=1.0,
+    group.add_argument('-lambda_for_loss', type=float, default=1,
                        help='balance for two losses')
     group.add_argument('-multigpu', type=bool, default=False,
                        help='multiple device GPU')

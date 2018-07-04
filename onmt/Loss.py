@@ -201,22 +201,26 @@ class NMTLossCompute(LossComputeBase):
                 log_likelihood.index_fill_(0, mask, 0)
                 tmp_.index_fill_(0, mask, 0)
             gtruth = Variable(tmp_, requires_grad=False)
-        loss = self.criterion(scores, gtruth)
-        if model_opt.debug_mode >= 2:
+        oldloss = self.criterion(scores, gtruth)
+        if model_opt.debug_mode >= 3:
             print("scores before loss:", scores.size(), "gtruth before loss:", gtruth.size())
-            print("oldloss:", loss.size())
-            print("oldloss:", loss)
-        if model_opt.use_gmm == 1:
+            print("oldloss:", oldloss.size())
+            print("oldloss:", oldloss)
+        sumof_extra_loss = 0
+        if model_opt.use_gmm > 0:
             sumof_extra_loss = torch.sum(extra_loss)
-            if model_opt.debug_mode >= 2:
+            if model_opt.debug_mode >= 3:
                 print("extra_loss:", extra_loss.size())
                 print("extra_loss:", extra_loss)
                 print("sumof_extra_loss:", sumof_extra_loss)
-            loss = loss + sumof_extra_loss 
-            #loss = loss 
+            if model_opt.lambda_for_loss == 1.0:
+                loss = oldloss + sumof_extra_loss
+            else:
+                loss = (model_opt.lambda_for_loss * oldloss + sumof_extra_loss) / (model_opt.lambda_for_loss + 1)
+            #loss = model_opt.lambda_for_loss * oldloss + sumof_extra_loss 
             #loss = loss + 0.00001 * sumof_extra_loss 
         if model_opt.debug_mode >= 2:
-            print("new loss:", loss)
+            print("[Loss] total loss:", loss, "oldloss:", oldloss, "sumof_extra_loss:", sumof_extra_loss, "lambda_for_loss:", model_opt.lambda_for_loss)
         #loss = self.criterion(scores, gtruth)
         if self.confidence < 1:
             # Default: report smoothed ppl.

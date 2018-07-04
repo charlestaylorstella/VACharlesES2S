@@ -1,5 +1,6 @@
 import math
 import numpy
+import onmt.Utils as Utils 
 
 import torch
 import torch.nn as nn
@@ -7,6 +8,7 @@ from torch.nn.parameter import Parameter
 import torch.nn.functional as F
 from torch.nn.modules import Module
 
+'''
 def myMatrixDivVector(matrix, vector):
     """
        matrix(N,M) / vector(N) = matrix(N,M)
@@ -27,7 +29,7 @@ def sum_with_axis(input, axes, keepdim=False):
         for ax in sorted(axes, reverse=True):
             input = input.sum(ax)
     return input
-
+'''
 
 class gaussianMixtureModel(Module):
     r"""Applies a linear transformation to the incoming data: :math:`y = Ax + b`
@@ -113,7 +115,8 @@ class gaussianMixtureModel(Module):
         self.batch_size = z_mean.size()[0]
         cluster_mean_duplicate = self.cluster_mean.repeat(self.batch_size, 1, 1)
         if self.opt != None and self.opt.use_normalize_in_gmm:
-            cluster_prior_prob = torch.nn.functional.sigmoid(self.cluster_prior)
+            #cluster_prior_prob = torch.nn.functional.sigmoid(self.cluster_prior)
+            cluster_prior_prob = torch.nn.functional.softmax(self.cluster_prior)
             cluster_variance_sq = torch.nn.functional.sigmoid(self.cluster_variance_sq_unnorm)
             #cluster_variance_sq = torch.nn.functional.relu(self.cluster_variance_sq_unnorm) # soft relu is the best
         else:
@@ -161,11 +164,11 @@ class gaussianMixtureModel(Module):
         terms = torch.log(cluster_prior_duplicate) \
             - 0.5 * torch.log(2 * math.pi * cluster_variance_sq_duplicate) \
             - tmpb / (2 * cluster_variance_sq_duplicate)
-        P_c_given_x_unnorm = torch.exp(sum_with_axis(terms, [1])) + 1e-10
+        P_c_given_x_unnorm = torch.exp(Utils.sum_with_axis(terms, [1])) + 1e-10
         #print(P_c_given_x_unnorm)
         #print(sum_with_axis(P_c_given_x_unnorm, [-1]))
-        P_c_given_x = myMatrixDivVector(P_c_given_x_unnorm, \
-            sum_with_axis(P_c_given_x_unnorm, [-1]))
+        P_c_given_x = Utils.myMatrixDivVector(P_c_given_x_unnorm, \
+            Utils.sum_with_axis(P_c_given_x_unnorm, [-1]))
 
         # loss
         P_c_given_x_duplicate = P_c_given_x.repeat(self.latent_dim, 1, 1).permute(1, 0, 2)
@@ -182,12 +185,14 @@ class gaussianMixtureModel(Module):
         #tmp113 = tmp112 + tmp5
         #second_term = sum_with_axis(tmp113, [1, 2])
         second_term_unfold = factor1 * (tmp1 + tmp2 + tmp3 + tmp5)
-        second_term = sum_with_axis(second_term_unfold, [1, 2])
-        tmp6 = sum_with_axis(P_c_given_x * torch.log(P_c_given_x), [1])
-        tmp7 = sum_with_axis(P_c_given_x * torch.log(cluster_prior_duplicate_2D), [1])
+        second_term = Utils.sum_with_axis(second_term_unfold, [1, 2])
+        tmp6 = Utils.sum_with_axis(P_c_given_x * torch.log(P_c_given_x), [1])
+        tmp7 = Utils.sum_with_axis(P_c_given_x * torch.log(cluster_prior_duplicate_2D), [1])
         third_term_KL_div = tmp7 - tmp6
         #third_term_KL_div = tmp6 - tmp7
-        forth_term = 0.5 * sum_with_axis(z_log_variance_sq + 1, [1]) 
+        forth_term = 0.5 * Utils.sum_with_axis(z_log_variance_sq + 1, [1]) 
+        #loss_without_reconstruct = 0 - second_term + third_term_KL_div * self.latent_dim / 2 + forth_term
+        #loss_without_reconstruct = 0 - second_term + forth_term
         loss_without_reconstruct = 0 - second_term + third_term_KL_div + forth_term
         #tmp212 = tmp211 + forth_term
         #loss_without_reconstruct = tmp212
@@ -200,7 +205,7 @@ class gaussianMixtureModel(Module):
             print("tmp2:", tmp2.size(), "tmp3:", tmp3.size(), "tmp4:", tmp4.size(), "tmp5:", tmp5.size(), "tmp6:", tmp6.size(), "tmp7:", tmp7.size(), "second_term:", second_term.size(), "third_term_KL_div:", third_term_KL_div.size(), "z_log_variance_sq:", z_log_variance_sq.size())
             #print("tmp211:", tmp211.size(), "forth_term:", forth_term.size())
         if self.opt != None and self.opt.debug_mode >= 5:
-            print("sum_with_axis(terms, [1]):", sum_with_axis(terms, [1]))
+            print("sum_with_axis(terms, [1]):", Utils.sum_with_axis(terms, [1]))
             print("tmpa:", tmpa)
             print("tmpb:", tmpb)
             print("tmpb / (2 * cluster_variance_sq_duplicate):", tmpb / (2 * cluster_variance_sq_duplicate))

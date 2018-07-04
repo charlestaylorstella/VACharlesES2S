@@ -9,6 +9,7 @@ from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 import onmt
 from onmt.Utils import aeq
+import onmt.Utils as Utils 
 import onmt.gaussianMixtureModel as gaussianMixtureModel
 
 import math
@@ -118,8 +119,9 @@ class VariationalInference(nn.Module):
          
          self.fc_z_mean = FCLayer(encoder_dim, opt.latent_dim)         
          self.fc_z_log_variance_sq = FCLayer(encoder_dim, opt.latent_dim)
-         self.gmm = gaussianMixtureModel.gaussianMixtureModel(opt.latent_dim, opt.cluster_num, opt.batch_size, opt)
-         print("in init var out print gmm cluster_prior:", self.gmm.cluster_prior)
+         if self.opt.use_gmm == 1:
+             self.gmm = gaussianMixtureModel.gaussianMixtureModel(opt.latent_dim, opt.cluster_num, opt.batch_size, opt)
+             print("in init var out print gmm cluster_prior:", self.gmm.cluster_prior)
          self.use_gmm_output_fc = opt.use_gmm_output_fc
          if self.use_gmm_output_fc:
              self.fc_z_output = FCLayer(opt.latent_dim, decoder_dim)         
@@ -127,6 +129,18 @@ class VariationalInference(nn.Module):
              if decoder_dim != opt.latent_dim:
                  print("Error! If there is no transforming(FC) layer after GMM, Must keep decoder_dim and latent_dim equal. decoder_dim:", decoder_dim, "latent_dim:", opt.latent_dim)
                  assert decoder_dim == opt.latent_dim
+
+     def PostPrior_KL_in_VAE(self, mean, log_variance_sq):
+         '''log_variance_sq is log((variance)**2)'''
+         KL_buf_matrix = 1 + log_variance_sq - mean * mean - torch.exp(log_variance_sq)
+         KL_in_batch = 0 - 0.5 * Utils.sum_with_axis(KL_buf_matrix, [1])
+         if self.opt.debug_mode >= 3:
+             print("KL_buf_matrix in PostPrior_KL_in_VAE size:", KL_buf_matrix.size())
+             print("KL_in_batch in PostPrior_KL_in_VAE size:", KL_in_batch.size())
+         if self.opt.debug_mode >= 4:
+             print("KL_buf_matrix in PostPrior_KL_in_VAE:", KL_buf_matrix)
+             print("KL_in_batch in PostPrior_KL_in_VAE:", KL_in_batch)
+         return KL_in_batch
 
      def reparameter(self, mean, variance_sq):
          all_zero_mean = torch.zeros(mean.size()).cuda() # hard coding
@@ -148,7 +162,8 @@ class VariationalInference(nn.Module):
          encoder_output = encoder_output.view(encoder_output.size()[1:]) # eliminate first dimension (1*batch_size*dim) -> (batch_size*dim). To adapt to the shape of nn.RNN/GRU/LSTM output
 
          if self.opt.debug_mode >= 6:
-             print("0 out print gmm cluster_prior:", self.gmm.cluster_prior)
+             if self.opt.use_gmm == 1:
+                 print("0 out print gmm cluster_prior:", self.gmm.cluster_prior)
              print("encoder_output after reshape size:", encoder_output.size())
              print("encoder_output after reshape:", encoder_output)
 
@@ -158,7 +173,7 @@ class VariationalInference(nn.Module):
          if self.opt.debug_mode >= 3:
              print("z_mean after fc:", z_mean)
          
-         z_log_variance_sq = self.fc_z_log_variance_sq(encoder_output)
+         z_log_variance_sq = self.fc_z_log_variance_sq(encoder_output) # log((variance)**2)
          if self.opt.debug_mode >= 2:
              print("z_log_variance_sq after fc size:", z_log_variance_sq.size())
          if self.opt.debug_mode >= 3:
@@ -173,13 +188,14 @@ class VariationalInference(nn.Module):
          #return z_mean, z_log_variance_sq, z
          
          # repeat for category
-         #z_mean_duplicate4class = z_mean.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
-         #z_log_variance_sq_duplicate4class = z_log_variance_sq.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
-         #z_duplicate4class = z.repeat(self.cluster_num, 1, 1).permute(1, 2, 0)
-         #print("out print gmm cluster_prior:", self.gmm.cluster_prior)
-         P_c_given_x, loss_without_crossent = self.gmm(z_mean, z_log_variance_sq, z) 
+         if self.opt.use_gmm == 1:
+             P_c_given_x, loss_without_crossent = self.gmm(z_mean, z_log_variance_sq, z) 
+         elif self.opt.use_gmm == 2: # VAE
+             P_c_given_x = None
+             loss_without_crossent = self.PostPrior_KL_in_VAE(z_mean, z_log_variance_sq)
          if self.opt.debug_mode >= 6:
-             print("after gmm before reshape size z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
+             #print("after gmm before reshape size z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
+             print("after gmm before reshape size z:", z.size(), "loss_without_crossent:", loss_without_crossent.size())
          if self.opt.debug_mode >= 6:
              print("after gmm before reshape z:", z, "P_c_given_x:", P_c_given_x, "loss_without_crossent:", loss_without_crossent)
          
@@ -187,7 +203,7 @@ class VariationalInference(nn.Module):
              z = self.fc_z_output(z)
          z = z.view([1] + [i for i in z.size()]) # add first dimension (batch_size*dim) -> (1*batch_size*dim). To adapt to the shape of nn.RNN/GRU/LSTM output
          if self.opt.debug_mode >= 2:
-             print("variational output size z:", z.size(), "P_c_given_x:", P_c_given_x.size(), "loss_without_crossent:", loss_without_crossent.size())
+             print("variational output size z:", z.size(), "loss_without_crossent:", loss_without_crossent.size())
          if self.opt.debug_mode >= 3:
              print("variational output z:", z, "P_c_given_x:", P_c_given_x, "loss_without_crossent:", loss_without_crossent)
          
@@ -667,7 +683,7 @@ class NMTModel(nn.Module):
         super(NMTModel, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-        if self.use_gmm:
+        if self.use_gmm > 0:
             self.variationalInference = variationalInference
 
     def forward(self, src, tgt, lengths, dec_state=None):
@@ -694,7 +710,7 @@ class NMTModel(nn.Module):
         tgt = tgt[:-1]  # exclude last target from inputs
 
         enc_final, memory_bank = self.encoder(src, lengths)
-        if self.use_gmm:
+        if self.use_gmm > 0:
             z, P, loss_without_crossent = self.variationalInference(enc_final)
             if self.opt.debug_mode >= 4:
                 print("z:", z.size())
