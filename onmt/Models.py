@@ -139,7 +139,7 @@ class VariationalInference(nn.Module):
              print("KL_in_batch in PostPrior_KL_in_VAE size:", KL_in_batch.size())
          if self.opt.debug_mode >= 4:
              print("KL_buf_matrix in PostPrior_KL_in_VAE:", KL_buf_matrix)
-             print("KL_in_batch in PostPrior_KL_in_VAE:", KL_in_batch)
+             #print("KL_in_batch in PostPrior_KL_in_VAE:", KL_in_batch)
          return KL_in_batch
 
      def reparameter(self, mean, variance_sq):

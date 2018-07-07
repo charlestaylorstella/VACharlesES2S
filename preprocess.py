@@ -112,11 +112,14 @@ def build_save_text_dataset_in_shards(src_corpus, tgt_corpus, fields,
 
 
 def build_save_dataset(corpus_type, fields, opt):
-    assert corpus_type in ['train', 'valid']
+    assert corpus_type in ['train', 'test', 'valid']
 
     if corpus_type == 'train':
         src_corpus = opt.train_src
         tgt_corpus = opt.train_tgt
+    elif corpus_type == "test":
+        src_corpus = opt.test_src
+        tgt_corpus = opt.test_tgt
     else:
         src_corpus = opt.valid_src
         tgt_corpus = opt.valid_tgt
@@ -189,6 +192,9 @@ def main():
 
     print("Building & saving validation data...")
     build_save_dataset('valid', fields, opt)
+
+    print("Building & saving validation data...")
+    build_save_dataset('test', fields, opt)
 
 
 if __name__ == "__main__":

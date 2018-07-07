@@ -248,8 +248,14 @@ def train_model(model, fields, optim, data_type, model_opt):
           (opt.epochs + 1 - opt.start_epoch, opt.start_epoch))
     print(' * batch size: %d' % opt.batch_size)
 
+    debug_mode_from_input_option = model_opt.debug_mode
     for epoch in range(opt.start_epoch, opt.epochs + 1):
         print('')
+        
+        if epoch < model_opt.debug_print_start_from_epoch:
+            model_opt.debug_mode = 0
+        else:
+            model_opt.debug_mode = debug_mode_from_input_option
 
         # 1. Train for one epoch on the training set.
         train_iter = make_dataset_iter(lazily_load_dataset("train"),
@@ -265,6 +271,39 @@ def train_model(model, fields, optim, data_type, model_opt):
         valid_stats = trainer.validate(valid_iter, model_opt)
         print('Validation perplexity: %g' % valid_stats.ppl())
         print('Validation accuracy: %g' % valid_stats.accuracy())
+
+        if model_opt.also_valid_on_training:
+            # 2.1. Validate on the training set.
+            train4valid_iter = make_dataset_iter(lazily_load_dataset("train4valid"),
+                                       fields, opt,
+                                       is_train=False)
+            train4valid_stats = trainer.validate(train4valid_iter, model_opt)
+            print('Training Set for Validation perplexity: %g' % train4valid_stats.ppl())
+            print('Training Set for Validation accuracy: %g' % train4valid_stats.accuracy())
+
+            train4valid_iter2 = make_dataset_iter(lazily_load_dataset("train4valid"),
+                                       fields, opt,
+                                       is_train=False)
+            train4valid_stats2 = trainer.validate(train4valid_iter2, model_opt)
+            print('Training Set for Validation perplexity: %g' % train4valid_stats2.ppl())
+            print('Training Set for Validation accuracy: %g' % train4valid_stats2.accuracy())
+
+        if model_opt.also_valid_on_testing:
+            # 2.2. Validate on the testing set.
+            test_iter = make_dataset_iter(lazily_load_dataset("test"),
+                                       fields, opt,
+                                       is_train=False)
+            test_stats = trainer.validate(test_iter, model_opt)
+            print('Testing Set for Validation perplexity: %g' % test_stats.ppl())
+            print('Testing Set for Validation accuracy: %g' % test_stats.accuracy())
+
+        # 2. Validate on the validation set.
+        valid_iter2 = make_dataset_iter(lazily_load_dataset("valid"),
+                                       fields, opt,
+                                       is_train=False)
+        valid_stats2 = trainer.validate(valid_iter2, model_opt)
+        print('Validation perplexity: %g' % valid_stats2.ppl())
+        print('Validation accuracy: %g' % valid_stats2.accuracy())
 
         # 3. Log to remote server.
         if opt.exp_host:
@@ -313,7 +352,7 @@ def lazily_load_dataset(corpus_type):
     Returns:
         A list of dataset, the dataset(s) are lazily loaded.
     """
-    assert corpus_type in ["train", "valid"]
+    assert corpus_type in ["train", "valid", "test", "train4valid"]
 
     def lazy_dataset_loader(pt_file, corpus_type):
         dataset = torch.load(pt_file)

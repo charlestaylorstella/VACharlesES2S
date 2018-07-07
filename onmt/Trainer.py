@@ -48,7 +48,7 @@ class Statistics(object):
         return self.loss / float(self.n_words)
 
     def ppl(self):
-        return math.exp(min(self.loss / float(self.n_words), 100))
+        return math.exp(min(self.loss / float(self.n_words + 0.00001), 100))
 
     def elapsed_time(self):
         return time.time() - self.start_time
@@ -158,8 +158,11 @@ class Trainer(object):
         except NotImplementedError:
             # Dynamic batching
             num_batches = -1
-
+        #if model_opt.debug_mode >= 3:
+        #    print("train_iter length:", train_iter.size())
         for i, batch in enumerate(train_iter):
+            if model_opt.debug_mode >= 4:
+                print("train batch No.:", i, "batch:", batch)
             cur_dataset = train_iter.get_cur_dataset()
             self.train_loss.cur_dataset = cur_dataset
 
@@ -175,7 +178,7 @@ class Trainer(object):
             if accum == self.grad_accum_count:
                 self._gradient_accumulation(
                         true_batchs, total_stats,
-                        report_stats, normalization, model_opt)
+                        report_stats, normalization, model_opt, i, epoch)
 
                 if report_func is not None:
                     report_stats = report_func(
@@ -193,7 +196,7 @@ class Trainer(object):
         if len(true_batchs) > 0:
             self._gradient_accumulation(
                     true_batchs, total_stats,
-                    report_stats, normalization, model_opt)
+                    report_stats, normalization, model_opt, i, epoch)
             true_batchs = []
 
         return total_stats
@@ -276,7 +279,8 @@ class Trainer(object):
                       valid_stats.ppl(), epoch))
 
     def _gradient_accumulation(self, true_batchs, total_stats,
-                               report_stats, normalization, model_opt):
+                               report_stats, normalization, 
+                               model_opt, batch_id, epoch_id):
         if self.grad_accum_count > 1:
             self.model.zero_grad()
 
@@ -314,7 +318,7 @@ class Trainer(object):
                 batch_stats = self.train_loss.sharded_compute_loss(
                         batch, outputs, attns, j,
                         trunc_size, self.shard_size, normalization, \
-                        gmm_loss, model_opt)
+                        gmm_loss, model_opt, batch_id, epoch_id)
 
                 # 4. Update the parameters and statistics.
                 if self.grad_accum_count == 1:

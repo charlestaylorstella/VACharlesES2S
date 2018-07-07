@@ -71,8 +71,10 @@ def model_opts(parser):
                        help='Size of rnn hidden states')
     group.add_argument('-latent_dim', type=int, default=500,
                        help='Dimension of latent states')
-    group.add_argument('-use_gmm', type=int, default=1,
-                       help='Use GMM of not. 1: gmm 2: vae 0: not')
+    group.add_argument('-use_gmm', type=int, default=0,
+                       help='Use GMM of not. 1:gmm  2:vae  0:not')
+    group.add_argument('-use_gmm_loss', type=int, default=1,
+                       help='Use GMM of not. 1:use gmm loss  2:not use gmm loss(when use_gmm >0 and use_gmm_loss==0, it use gmm structure but do not use gmm loss)')
     group.add_argument('-cluster_num', type=int, default=3,
                        help='Number of cluster of GMM')
     group.add_argument('-use_gmm_output_fc', type=bool, default=False,
@@ -81,10 +83,20 @@ def model_opts(parser):
                        help='Use a normalize function in gmm to transform the score to probabilty')
     group.add_argument('-lambda_for_loss', type=float, default=1,
                        help='balance for two losses')
-    group.add_argument('-multigpu', type=bool, default=False,
-                       help='multiple device GPU')
     group.add_argument('-debug_mode', type=int, default=6,
                        help='debug mode')
+    group.add_argument('-debug_print_start_from_epoch', type=int, default=0,
+                       help='the epoch that debug_mode print start from')
+    group.add_argument('-batch_num_for_steptrain', type=int, default=-1,
+                       help='batch_num_for_steptrain (cluster and vae training)')
+    group.add_argument('-epoch_num_for_steptrain', type=int, default=-1,
+                       help='epoch_num_for_steptrain (cluster and vae training)')
+    group.add_argument('-also_valid_on_training', type=int, default=1,
+                       help='also treat training set as validation set can validate it. 1:enable 0:no')
+    group.add_argument('-also_valid_on_testing', type=int, default=1,
+                       help='also treat testing set as validation set can validate it. 1:enable 0:no')
+    group.add_argument('-multigpu', type=bool, default=False,
+                       help='multiple device GPU')
     group.add_argument('-cnn_kernel_width', type=int, default=3,
                        help="""Size of windows in the cnn, the kernel_size is
                        (cnn_kernel_width, 1) in conv layer""")
@@ -147,6 +159,11 @@ def preprocess_opts(parser):
                        help="Path to the training source data")
     group.add_argument('-train_tgt', required=True,
                        help="Path to the training target data")
+    group.add_argument('-test_src', required=True,
+                       help="Path to the testing source data")
+    group.add_argument('-test_tgt', required=True,
+                       help="Path to the testing target data")
+
     group.add_argument('-valid_src', required=True,
                        help="Path to the validation source data")
     group.add_argument('-valid_tgt', required=True,

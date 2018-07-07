@@ -52,7 +52,7 @@ class LossComputeBase(nn.Module):
         """
         return NotImplementedError
 
-    def _compute_loss(self, batch, extra_loss, model_opt, output, target, **kwargs):
+    def _compute_loss(self, batch, extra_loss, model_opt, batch_id, epoch_id, output, target, **kwargs):
         """
         Compute the loss. Subclass must define this method.
 
@@ -81,13 +81,15 @@ class LossComputeBase(nn.Module):
         """
         range_ = (0, batch.tgt.size(0))
         shard_state = self._make_shard_state(batch, output, range_, attns)
-        _, batch_stats = self._compute_loss(batch, extra_loss, model_opt, **shard_state)
+        batch_id = -1
+        epoch_id = -1
+        _, batch_stats = self._compute_loss(batch, extra_loss, model_opt, batch_id, epoch_id, **shard_state)
 
         return batch_stats
 
     def sharded_compute_loss(self, batch, output, attns,
                              cur_trunc, trunc_size, shard_size,
-                             normalization, extra_loss, model_opt):
+                             normalization, extra_loss, model_opt, batch_id, epoch_id):
         """Compute the forward loss and backpropagate.  Computation is done
         with shards and optionally truncation for memory efficiency.
 
@@ -119,11 +121,11 @@ class LossComputeBase(nn.Module):
         range_ = (cur_trunc, cur_trunc + trunc_size)
         shard_state = self._make_shard_state(batch, output, range_, attns)
 
-        i = 0
+        #i = 0
         for shard in shards(shard_state, shard_size):
-            print("i:", i)
-            i += 1
-            loss, stats = self._compute_loss(batch, extra_loss, model_opt, **shard)
+            #print("i:", i)
+            #i += 1
+            loss, stats = self._compute_loss(batch, extra_loss, model_opt, batch_id, epoch_id, **shard)
             loss.div(normalization).backward(retain_graph=True)
             batch_stats.update(stats)
 
@@ -185,7 +187,7 @@ class NMTLossCompute(LossComputeBase):
             "target": batch.tgt[range_[0] + 1: range_[1]],
         }
 
-    def _compute_loss(self, batch, extra_loss, model_opt, output, target):
+    def _compute_loss(self, batch, extra_loss, model_opt, batch_id, epoch_id, output, target):
         scores = self.generator(self._bottle(output))
 
         if model_opt.debug_mode >= 6:
@@ -207,7 +209,8 @@ class NMTLossCompute(LossComputeBase):
             print("oldloss:", oldloss.size())
             print("oldloss:", oldloss)
         sumof_extra_loss = 0
-        if model_opt.use_gmm > 0:
+        #if model_opt.use_gmm > 0 and batch_id > 130:
+        if model_opt.use_gmm > 0 and model_opt.use_gmm > 0 and batch_id > model_opt.batch_num_for_steptrain and epoch_id > model_opt.epoch_num_for_steptrain:
             sumof_extra_loss = torch.sum(extra_loss)
             if model_opt.debug_mode >= 3:
                 print("extra_loss:", extra_loss.size())
@@ -219,6 +222,9 @@ class NMTLossCompute(LossComputeBase):
                 loss = (model_opt.lambda_for_loss * oldloss + sumof_extra_loss) / (model_opt.lambda_for_loss + 1)
             #loss = model_opt.lambda_for_loss * oldloss + sumof_extra_loss 
             #loss = loss + 0.00001 * sumof_extra_loss 
+        else:
+            loss = oldloss
+
         if model_opt.debug_mode >= 2:
             print("[Loss] total loss:", loss, "oldloss:", oldloss, "sumof_extra_loss:", sumof_extra_loss, "lambda_for_loss:", model_opt.lambda_for_loss)
         #loss = self.criterion(scores, gtruth)
