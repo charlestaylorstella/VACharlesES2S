@@ -13,6 +13,7 @@ import onmt.Utils as Utils
 import onmt.gaussianMixtureModel as gaussianMixtureModel
 
 import math
+import sys
 
 def rnn_factory(rnn_type, **kwargs):
     # Use pytorch version when available.
@@ -154,7 +155,7 @@ class VariationalInference(nn.Module):
          #return d
          return mean + torch.exp(variance_sq / 2) * epsilon
 
-     def forward(self, encoder_output):
+     def forward(self, encoder_output, src_text=None, tgt_text=None):
          if self.opt.debug_mode >= 2:
              print("encoder_output size:", encoder_output.size())
          if self.opt.debug_mode >= 3:
@@ -184,7 +185,9 @@ class VariationalInference(nn.Module):
              print("z after reparameter size:", z.size())
          if self.opt.debug_mode >= 3:
              print("z after reparameter:", z)
-         
+         if self.opt.save_z_and_sample:
+             #Utils.print_matrix(z, sys.stderr)
+             Utils.print_matrix_with_text(z, src_text, sys.stderr)
          #return z_mean, z_log_variance_sq, z
          
          # repeat for category
@@ -686,7 +689,8 @@ class NMTModel(nn.Module):
         if self.use_gmm > 0:
             self.variationalInference = variationalInference
 
-    def forward(self, src, tgt, lengths, dec_state=None):
+    # MAIN BUILD
+    def forward(self, src, tgt, lengths, dec_state=None, src_ori_text=None, tgt_ori_text=None):
         """Forward propagate a `src` and `tgt` pair for training.
         Possible initialized with a beginning decoder state.
 
@@ -711,7 +715,8 @@ class NMTModel(nn.Module):
 
         enc_final, memory_bank = self.encoder(src, lengths)
         if self.use_gmm > 0:
-            z, P, loss_without_crossent = self.variationalInference(enc_final)
+            z, P, loss_without_crossent = \
+               self.variationalInference(enc_final, src_ori_text, tgt_ori_text)
             if self.opt.debug_mode >= 4:
                 print("z:", z.size())
                 print("z:", z)

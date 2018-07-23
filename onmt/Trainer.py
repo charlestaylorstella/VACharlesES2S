@@ -134,6 +134,7 @@ class Trainer(object):
         # Set model in training mode.
         self.model.train()
 
+    # MAIN TRAIN
     def train(self, train_iter, epoch, model_opt, report_func=None):
         """ Train next epoch.
         Args:
@@ -160,6 +161,7 @@ class Trainer(object):
             num_batches = -1
         #if model_opt.debug_mode >= 3:
         #    print("train_iter length:", train_iter.size())
+        # MAIN TRAIN
         for i, batch in enumerate(train_iter):
             if model_opt.debug_mode >= 4:
                 print("train batch No.:", i, "batch:", batch)
@@ -176,6 +178,7 @@ class Trainer(object):
                 normalization += batch.batch_size
 
             if accum == self.grad_accum_count:
+                # MAIN TRAIN
                 self._gradient_accumulation(
                         true_batchs, total_stats,
                         report_stats, normalization, model_opt, i, epoch)
@@ -216,13 +219,13 @@ class Trainer(object):
             cur_dataset = valid_iter.get_cur_dataset()
             self.valid_loss.cur_dataset = cur_dataset
 
-            src = onmt.io.make_features(batch, 'src', self.data_type)
+            src, src_ori_text = onmt.io.make_features(batch, 'src', self.data_type)
             if self.data_type == 'text':
                 _, src_lengths = batch.src
             else:
                 src_lengths = None
 
-            tgt = onmt.io.make_features(batch, 'tgt')
+            tgt, tgt_ori_text = onmt.io.make_features(batch, 'tgt')
 
             # F-prop through the model.
             #print("src:", src, "tgt:", tgt, "src_lengths:", src_lengths)
@@ -293,14 +296,14 @@ class Trainer(object):
                 trunc_size = target_size
 
             dec_state = None
-            src = onmt.io.make_features(batch, 'src', self.data_type)
+            src, src_ori_text = onmt.io.make_features(batch, 'src', self.data_type)
             if self.data_type == 'text':
                 _, src_lengths = batch.src
                 report_stats.n_src_words += src_lengths.sum()
             else:
                 src_lengths = None
 
-            tgt_outer = onmt.io.make_features(batch, 'tgt')
+            tgt_outer, tgt_ori_text = onmt.io.make_features(batch, 'tgt')
 
             for j in range(0, target_size-1, trunc_size):
                 # 1. Create truncated target.
@@ -311,8 +314,12 @@ class Trainer(object):
                     self.model.zero_grad()
                 #print("in train src:", src, "tgt:", tgt, "src_lengths:", src_lengths, "dec_state:", dec_state)
                 #print("in train src:", src.size(), "tgt:", tgt.size(), "src_lengths:", src_lengths.size(), "dec_state:", dec_state)
+                # MAIN TRAIN KEY
+                #print("src_ori_text:", src_ori_text)
+                #print("src:", src)
                 outputs, attns, dec_state, P_c_given_x, gmm_loss = \
-                    self.model(src, tgt, src_lengths, dec_state)
+                    self.model(src, tgt, src_lengths, dec_state, \
+                    src_ori_text, tgt_ori_text)
 
                 # 3. Compute loss in shards for memory efficiency.
                 batch_stats = self.train_loss.sharded_compute_loss(

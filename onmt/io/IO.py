@@ -130,16 +130,17 @@ def make_features(batch, side, data_type='text'):
         data = batch.__dict__[side][0]
     else:
         data = batch.__dict__[side]
-
+    #print("data:", data, "levels:", levels)
+    #print("data:", data, "keys:", keys, "features:", features, "levels:", levels)
     feat_start = side + "_feat_"
     keys = sorted([k for k in batch.__dict__ if feat_start in k])
     features = [batch.__dict__[k] for k in keys]
     levels = [data] + features
 
     if data_type == 'text':
-        return torch.cat([level.unsqueeze(2) for level in levels], 2)
+        return torch.cat([level.unsqueeze(2) for level in levels], 2), data
     else:
-        return levels[0]
+        return levels[0], data
 
 
 def collect_features(fields, side="src"):
@@ -363,8 +364,15 @@ class OrderedIterator(torchtext.data.Iterator):
                     p_batch = torchtext.data.batch(
                         sorted(p, key=self.sort_key),
                         self.batch_size, self.batch_size_fn)
+                    print("p:", p, "p_batch:", p_batch)
+                    for pp in p:
+                        print("each p text:", pp.Text)
                     for b in random_shuffler(list(p_batch)):
+                        print("b:", b)
                         yield b
+            print("self.data():", self.data())
+            #print("self.data().Text:", self.data().Text)
+            #print("self.data().Text:", self.data().Description)
             self.batches = pool(self.data(), self.random_shuffler)
         else:
             self.batches = []

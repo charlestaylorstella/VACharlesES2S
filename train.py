@@ -239,6 +239,7 @@ def train_model(model, fields, optim, data_type, model_opt):
     norm_method = opt.normalization
     grad_accum_count = opt.accum_count
 
+    # MAIN TRAIN
     trainer = onmt.Trainer(model, train_loss, valid_loss, optim,
                            trunc_size, shard_size, data_type,
                            norm_method, grad_accum_count)
@@ -530,6 +531,7 @@ def main():
     optim = build_optim(model, checkpoint)
 
     # Do training.
+    # MAIN TRAIN
     train_model(model, fields, optim, data_type, model_opt)
 
     # If using tensorboard for logging, close the writer after training.

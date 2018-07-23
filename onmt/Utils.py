@@ -1,5 +1,5 @@
 import torch
-
+import sys
 
 def aeq(*args):
     """
@@ -48,3 +48,50 @@ def sum_with_axis(input, axes, keepdim=False):
         for ax in sorted(axes, reverse=True):
             input = input.sum(ax)
     return input
+
+def print_matrix(x, filestream=sys.stderr):
+    raw = x.size()[0]
+    col = x.size()[1]
+    x_list = x.data.tolist()
+    ''' 
+    There are some attempts. x.datacpu().numpy() also works.
+    print("x size:", x.size()[0])
+    print("x:", x)
+    print("x data:", x[0].data) # do not change
+    print("x[0][0] data0:", x[0][0].data[0]) # do not change
+    print("x[0][0].data.cpu():", x[0][0].data.cpu()) # do not change much
+    print("x[0][0].data.cpu().numpy():", x[0][0].data.cpu().numpy()) # dealed!
+    print("x[0].data.cpu().numpy():", x[0].data.cpu().numpy()) # dealed!
+    print("x.data.cpu().numpy():", x.data.cpu().numpy()) # dealed!
+    print("x.data.tolist:", x.data.tolist()) # dealed!
+    print("x.data.tolist[0]:", x.data.tolist()[0]) # dealed!
+    '''
+    print("x:", x)
+    print("x.data.tolist:", x.data.tolist()) # dealed!
+    print("raw:", raw, "col:", col, "len(x_list)", len(x_list), "len(x_list[0]) and 1:", len(x_list[0]), len(x_list[1]))
+    for i in range(raw):
+        assert len(x_list[i]) == col
+        print(" ".join(list(map(str, x_list[i]))), file=filestream)
+    print("", file=filestream)
+
+def print_matrix_with_text(x, text, filestream=sys.stderr):
+    raw = x.size()[0]
+    col = x.size()[1]
+    x_list = x.data.tolist()
+    print("text:", text)
+    print("len(text):", len(text))
+    for i in range(raw):
+        assert len(x_list[i]) == col
+        print(text[i] + "\t" + " ".join(list(map(str, x_list[i]))), file=filestream)
+    print("", file=filestream)
+
+def print_matrix_with_text(x, ids, filestream=sys.stderr):
+    raw = x.size()[0]
+    col = x.size()[1]
+    x_list = x.data.tolist()
+    print("text:", text)
+    print("len(text):", len(text))
+    for i in range(raw):
+        assert len(x_list[i]) == col
+        print(text[i] + "\t" + " ".join(list(map(str, x_list[i]))), file=filestream)
+    print("", file=filestream)
