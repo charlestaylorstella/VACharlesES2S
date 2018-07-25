@@ -179,9 +179,10 @@ class Trainer(object):
 
             if accum == self.grad_accum_count:
                 # MAIN TRAIN
+                is_train = True
                 self._gradient_accumulation(
                         true_batchs, total_stats,
-                        report_stats, normalization, model_opt, i, epoch)
+                        report_stats, normalization, is_train, model_opt, i, epoch)
 
                 if report_func is not None:
                     report_stats = report_func(
@@ -234,8 +235,9 @@ class Trainer(object):
             outputs, attns, _, P, gmm_loss = self.model(src, tgt, src_lengths, dec_state)
 
             # Compute loss.
+            is_train = False
             batch_stats = self.valid_loss.monolithic_compute_loss(
-                    batch, outputs, attns, gmm_loss, model_opt)
+                    batch, outputs, attns, gmm_loss, is_train, model_opt)
 
             # Update statistics.
             stats.update(batch_stats)
@@ -283,7 +285,7 @@ class Trainer(object):
 
     def _gradient_accumulation(self, true_batchs, total_stats,
                                report_stats, normalization, 
-                               model_opt, batch_id, epoch_id):
+                               is_train, model_opt, batch_id, epoch_id):
         if self.grad_accum_count > 1:
             self.model.zero_grad()
 
@@ -325,7 +327,7 @@ class Trainer(object):
                 batch_stats = self.train_loss.sharded_compute_loss(
                         batch, outputs, attns, j,
                         trunc_size, self.shard_size, normalization, \
-                        gmm_loss, model_opt, batch_id, epoch_id)
+                        gmm_loss, is_train, model_opt, batch_id, epoch_id)
 
                 # 4. Update the parameters and statistics.
                 if self.grad_accum_count == 1:

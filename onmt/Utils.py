@@ -85,7 +85,7 @@ def print_matrix_with_text(x, text, filestream=sys.stderr):
         print(text[i] + "\t" + " ".join(list(map(str, x_list[i]))), file=filestream)
     print("", file=filestream)
 
-def print_matrix_with_text(x, ids, filestream=sys.stderr):
+def print_matrix_with_text(x, text, filestream=sys.stderr):
     raw = x.size()[0]
     col = x.size()[1]
     x_list = x.data.tolist()
@@ -93,5 +93,5 @@ def print_matrix_with_text(x, ids, filestream=sys.stderr):
     print("len(text):", len(text))
     for i in range(raw):
         assert len(x_list[i]) == col
-        print(text[i] + "\t" + " ".join(list(map(str, x_list[i]))), file=filestream)
+        #print(text[i] + "\t" + " ".join(list(map(str, x_list[i]))), file=filestream)
     print("", file=filestream)

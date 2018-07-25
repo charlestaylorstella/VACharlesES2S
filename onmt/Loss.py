@@ -52,7 +52,7 @@ class LossComputeBase(nn.Module):
         """
         return NotImplementedError
 
-    def _compute_loss(self, batch, extra_loss, model_opt, batch_id, epoch_id, output, target, **kwargs):
+    def _compute_loss(self, batch, extra_loss, model_opt, is_train, batch_id, epoch_id, output, target, **kwargs):
         """
         Compute the loss. Subclass must define this method.
 
@@ -65,7 +65,7 @@ class LossComputeBase(nn.Module):
         """
         return NotImplementedError
 
-    def monolithic_compute_loss(self, batch, output, attns, extra_loss, model_opt):
+    def monolithic_compute_loss(self, batch, output, attns, extra_loss, is_train, model_opt):
         """
         Compute the forward loss for the batch.
 
@@ -83,13 +83,13 @@ class LossComputeBase(nn.Module):
         shard_state = self._make_shard_state(batch, output, range_, attns)
         batch_id = -1
         epoch_id = -1
-        _, batch_stats = self._compute_loss(batch, extra_loss, model_opt, batch_id, epoch_id, **shard_state)
+        _, batch_stats = self._compute_loss(batch, extra_loss, is_train, model_opt, batch_id, epoch_id, **shard_state)
 
         return batch_stats
 
     def sharded_compute_loss(self, batch, output, attns,
                              cur_trunc, trunc_size, shard_size,
-                             normalization, extra_loss, model_opt, batch_id, epoch_id):
+                             normalization, extra_loss, is_train, model_opt, batch_id, epoch_id):
         """Compute the forward loss and backpropagate.  Computation is done
         with shards and optionally truncation for memory efficiency.
 
@@ -125,7 +125,7 @@ class LossComputeBase(nn.Module):
         for shard in shards(shard_state, shard_size):
             #print("i:", i)
             #i += 1
-            loss, stats = self._compute_loss(batch, extra_loss, model_opt, batch_id, epoch_id, **shard)
+            loss, stats = self._compute_loss(batch, extra_loss, is_train, model_opt, batch_id, epoch_id, **shard)
             loss.div(normalization).backward(retain_graph=True)
             batch_stats.update(stats)
 
@@ -187,7 +187,7 @@ class NMTLossCompute(LossComputeBase):
             "target": batch.tgt[range_[0] + 1: range_[1]],
         }
 
-    def _compute_loss(self, batch, extra_loss, model_opt, batch_id, epoch_id, output, target):
+    def _compute_loss(self, batch, extra_loss, is_train, model_opt, batch_id, epoch_id, output, target):
         scores = self.generator(self._bottle(output))
 
         if model_opt.debug_mode >= 6:
@@ -216,7 +216,27 @@ class NMTLossCompute(LossComputeBase):
                 print("extra_loss:", extra_loss.size())
                 print("extra_loss:", extra_loss)
                 print("sumof_extra_loss:", sumof_extra_loss)
-            if model_opt.lambda_for_loss == 1.0:
+            kl_anneal_factor = 0
+            if model_opt.use_KL_anneal:
+                if model_opt.variable_batch_max_id < batch_id:
+                    model_opt.variable_batch_max_id = batch_id
+                total_batch_id = model_opt.variable_batch_max_id * (epoch_id-1) + batch_id
+                if total_batch_id < model_opt.KL_anneal_phase1:
+                    kl_anneal_factor = 0
+                elif total_batch_id < model_opt.KL_anneal_phase2:
+                    kl_anneal_factor = 0.01
+                elif total_batch_id < model_opt.KL_anneal_phase3:
+                    kl_anneal_factor = 0.1
+                elif total_batch_id < model_opt.KL_anneal_phase3:
+                    kl_anneal_factor = 0.25
+                elif total_batch_id < model_opt.KL_anneal_phase4:
+                    kl_anneal_factor = 0.5
+                else:
+                    kl_anneal_factor = 1.0
+                #kl_anneal_factor = 1.0
+                loss = oldloss + kl_anneal_factor * sumof_extra_loss
+                #loss = oldloss + sumof_extra_loss
+            elif model_opt.lambda_for_loss == 1.0:
                 loss = oldloss + sumof_extra_loss
             else:
                 loss = (model_opt.lambda_for_loss * oldloss + sumof_extra_loss) / (model_opt.lambda_for_loss + 1)
@@ -225,8 +245,15 @@ class NMTLossCompute(LossComputeBase):
         else:
             loss = oldloss
 
-        if model_opt.debug_mode >= 2:
-            print("[Loss] total loss:", loss, "oldloss:", oldloss, "sumof_extra_loss:", sumof_extra_loss, "lambda_for_loss:", model_opt.lambda_for_loss)
+        if model_opt.debug_mode >= 1 and is_train:
+            try:
+                print("[Loss] Rec:", oldloss, "epoch:", epoch_id, "batch:", batch_id)
+            except Exception as e:
+                print("[Loss] ", e)
+            try:
+                print("[Loss] Loss:", loss, "Rec:", oldloss, "KL:", sumof_extra_loss, "lambda:", model_opt.lambda_for_loss, "epoch:", epoch_id, "tbatch:", total_batch_id)
+            except Exception as e:
+                print("[Loss] ", e)
         #loss = self.criterion(scores, gtruth)
         if self.confidence < 1:
             # Default: report smoothed ppl.

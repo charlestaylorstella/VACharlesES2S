@@ -71,7 +71,7 @@ def model_opts(parser):
                        help='Size of rnn hidden states')
     group.add_argument('-latent_dim', type=int, default=500,
                        help='Dimension of latent states')
-    group.add_argument('-use_gmm', type=int, default=2,
+    group.add_argument('-use_gmm', type=int, default=1,
                        help='Use GMM of not. 1:gmm  2:vae  0:not')
     group.add_argument('-use_gmm_loss', type=int, default=1,
                        help='Use GMM of not. 1:use gmm loss  2:not use gmm loss(when use_gmm >0 and use_gmm_loss==0, it use gmm structure but do not use gmm loss)')
@@ -85,7 +85,7 @@ def model_opts(parser):
                        help='balance for two losses')
     group.add_argument('-debug_mode', type=int, default=6,
                        help='debug mode')
-    group.add_argument('-debug_print_start_from_epoch', type=int, default=0,
+    group.add_argument('-debug_print_start_from_epoch', type=int, default=5,
                        help='the epoch that debug_mode print start from')
     group.add_argument('-batch_num_for_steptrain', type=int, default=-1,
                        help='batch_num_for_steptrain (cluster and vae training)')
@@ -95,8 +95,20 @@ def model_opts(parser):
                        help='also treat training set as validation set can validate it. 1:enable 0:no')
     group.add_argument('-also_valid_on_testing', type=int, default=1,
                        help='also treat testing set as validation set can validate it. 1:enable 0:no')
-    group.add_argument('-save_z_and_sample', type=int, default=1,
+    group.add_argument('-save_z_and_sample', type=int, default=0,
                        help='save_z_and_sample. 1:enable 0:no')
+    group.add_argument('-use_KL_anneal', type=int, default=1,
+                       help='use_KL_anneal or not')
+    group.add_argument('-KL_anneal_phase1', type=int, default=100,
+                       help='KL_anneal_phase1 batch number which indicates the end of KL_anneal_phase1')
+    group.add_argument('-KL_anneal_phase2', type=int, default=30000,
+                       help='KL_anneal_phase2 batch number which indicates the end of KL_anneal_phase2')
+    group.add_argument('-KL_anneal_phase3', type=int, default=50000,
+                       help='KL_anneal_phase3 batch number which indicates the end of KL_anneal_phase3')
+    group.add_argument('-KL_anneal_phase4', type=int, default=100000,
+                       help='KL_anneal_phase3 batch number which indicates the end of KL_anneal_phase3')
+    group.add_argument('-variable_batch_max_id', type=int, default=0,
+                       help='not a option. just a global variable')
     group.add_argument('-multigpu', type=bool, default=False,
                        help='multiple device GPU')
     group.add_argument('-cnn_kernel_width', type=int, default=3,
