@@ -185,6 +185,7 @@ def make_base_model(model_opt, fields, gpu, checkpoint=None):
     #variationalInference = onmt.Models.VariationalInference(
     #    model_opt.rnn_size, model_opt.rnn_size, model_opt.latent_dim, 
     #    model_opt.cluster_num, model_opt.batch_size) 
+    model_opt.variable_src_dict = fields["src"].vocab
     if model_opt.use_gmm > 0:
         variationalInference = onmt.Models.VariationalInference(model_opt)
     else:

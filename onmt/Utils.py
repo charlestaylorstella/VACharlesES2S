@@ -85,13 +85,35 @@ def print_matrix_with_text(x, text, filestream=sys.stderr):
         print(text[i] + "\t" + " ".join(list(map(str, x_list[i]))), file=filestream)
     print("", file=filestream)
 
-def print_matrix_with_text(x, text, filestream=sys.stderr):
+def round_for_list(x, precision):
+    return [round(data, precision) for data in x]
+
+def print_matrix_with_ids(x, ids, precision, filestream=sys.stderr):
     raw = x.size()[0]
     col = x.size()[1]
     x_list = x.data.tolist()
-    print("text:", text)
-    print("len(text):", len(text))
+    ids_list = ids.data.tolist()
+    #print("text in print_matrix_with_text:", text)
+    #print("len(text) in print_matrix_with_text:", len(text))
+    #print("len(text[3]) in print_matrix_with_text:", len(text[3]))
+    #print("len(x[3]) in print_matrix_with_text:", len(x[3]))
+    #print("len(x) in print_matrix_with_text:", len(x))
     for i in range(raw):
+        #print("col:", col, "len(x_list[i]):", len(x_list[i]))
         assert len(x_list[i]) == col
-        #print(text[i] + "\t" + " ".join(list(map(str, x_list[i]))), file=filestream)
+        print(" ".join(list(map(str, ids_list[i]))) + "\t" + " ".join(list(map(str, round_for_list(x_list[i], precision)))), file=filestream)
+    print("", file=filestream)
+
+def ids2words(ids, dict):
+    return [dict[id] for id in ids]
+
+def print_matrix_with_text(x, ids, dict, precision, filestream=sys.stderr):
+    raw = x.size()[0]
+    col = x.size()[1]
+    x_list = x.data.tolist()
+    ids_list = ids.data.tolist()
+    for i in range(raw):
+        #print("col:", col, "len(x_list[i]):", len(x_list[i]))
+        assert len(x_list[i]) == col
+        print(" ".join(list(map(str, ids2words(ids_list[i], dict)))) + "\t" + " ".join(list(map(str, round_for_list(x_list[i], precision)))), file=filestream)
     print("", file=filestream)

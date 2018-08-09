@@ -10,9 +10,9 @@ def model_opts(parser):
 
     # Embedding Options
     group = parser.add_argument_group('Model-Embeddings')
-    group.add_argument('-src_word_vec_size', type=int, default=620,
+    group.add_argument('-src_word_vec_size', type=int, default=500,
                        help='Word embedding size for src.')
-    group.add_argument('-tgt_word_vec_size', type=int, default=620,
+    group.add_argument('-tgt_word_vec_size', type=int, default=500,
                        help='Word embedding size for tgt.')
     group.add_argument('-word_vec_size', type=int, default=-1,
                        help='Word embedding size for src and tgt.')
@@ -67,9 +67,9 @@ def model_opts(parser):
                        help='Number of layers in the encoder')
     group.add_argument('-dec_layers', type=int, default=1,
                        help='Number of layers in the decoder')
-    group.add_argument('-rnn_size', type=int, default=1000,
+    group.add_argument('-rnn_size', type=int, default=500,
                        help='Size of rnn hidden states')
-    group.add_argument('-latent_dim', type=int, default=1000,
+    group.add_argument('-latent_dim', type=int, default=500,
                        help='Dimension of latent states')
     group.add_argument('-use_gmm', type=int, default=0,
                        help='Use GMM of not. 1:gmm  2:vae  0:seq2seq')
@@ -314,7 +314,7 @@ def train_opts(parser):
 
     # Optimization options
     group = parser.add_argument_group('Optimization- Type')
-    group.add_argument('-batch_size', type=int, default=80,
+    group.add_argument('-batch_size', type=int, default=64,
                        help='Maximum batch size for training')
     group.add_argument('-batch_type', default='sents',
                        choices=["sents", "tokens"],
@@ -336,7 +336,7 @@ def train_opts(parser):
                         uses more memory.""")
     group.add_argument('-epochs', type=int, default=13,
                        help='Number of training epochs')
-    group.add_argument('-optim', default='adadelta',
+    group.add_argument('-optim', default='sgd',
                        choices=['sgd', 'adagrad', 'adadelta', 'adam',
                                 'sparseadam'],
                        help="""Optimization method.""")
@@ -349,7 +349,7 @@ def train_opts(parser):
                        help="""If the norm of the gradient vector exceeds this,
                        renormalize it to have the norm equal to
                        max_grad_norm""")
-    group.add_argument('-dropout', type=float, default=0.0,
+    group.add_argument('-dropout', type=float, default=0.3,
                        help="Dropout probability; applied in LSTM stacks.")
     group.add_argument('-truncated_decoder', type=int, default=0,
                        help="""Truncated bptt.""")
@@ -380,7 +380,7 @@ def train_opts(parser):
                        https://arxiv.org/abs/1512.00567""")
     # learning rate
     group = parser.add_argument_group('Optimization- Rate')
-    group.add_argument('-learning_rate', type=float, default=0.0001, # 1.0 -> 0.0001
+    group.add_argument('-learning_rate', type=float, default=1.0,
                        help="""Starting learning rate.
                        Recommended settings: sgd = 1, adagrad = 0.1,
                        adadelta = 1, adam = 0.001""")
@@ -462,7 +462,7 @@ def translate_opts(parser):
                        help='Beam size')
     group.add_argument('-min_length', type=int, default=0,
                        help='Minimum prediction length')
-    group.add_argument('-max_length', type=int, default=50,
+    group.add_argument('-max_length', type=int, default=100,
                        help='Maximum prediction length.')
     group.add_argument('-max_sent_length', action=DeprecateAction,
                        help="Deprecated, use `-max_length` instead")
@@ -510,7 +510,7 @@ def translate_opts(parser):
                        decoded sentences""")
 
     group = parser.add_argument_group('Efficiency')
-    group.add_argument('-batch_size', type=int, default=80,
+    group.add_argument('-batch_size', type=int, default=30,
                        help='Batch size')
     group.add_argument('-gpu', type=int, default=-1,
                        help="Device to run on")

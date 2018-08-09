@@ -2,6 +2,6 @@ alias pythont='/bigstore/hlcm2/tianzhiliang/test/software/anaconda3_5_1_0_pytorc
 
 mark=$1
 gpuid=2
-pythont train.py -data data/wmt_europarlv7_en2de_v32k -save_model model_wmt_eur7_en2de32k -gpuid ${gpuid} > log${mark} 2>err${mark}
+pythont train.py -data data/db_bb2_q2r_v10w3w -save_model model_dbbb2_v10w3w -gpuid ${gpuid} > log${mark} 2>err${mark}
 #CUDA_VISIBLE_DEVICES=${gpuid} pythont train.py -data data/demo -save_model demo-model -gpuid ${gpuid} > log${mark} 2>err${mark}
 #python train.py -data data/demo -save_model demo-model -gpuid ${gpuid} > log${mark} 2>err${mark}

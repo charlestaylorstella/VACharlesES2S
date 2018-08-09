@@ -187,7 +187,10 @@ class VariationalInference(nn.Module):
              print("z after reparameter:", z)
          if self.opt.save_z_and_sample:
              #Utils.print_matrix(z, sys.stderr)
-             Utils.print_matrix_with_text(z, src_text, sys.stderr)
+             if not src_text is None:
+                 #print("src_text is none z:", z)
+                 src_text_t = torch.transpose(src_text, 0, 1)
+                 Utils.print_matrix_with_text(z, src_text_t, self.opt.variable_src_dict.itos, 4, sys.stderr)
          #return z_mean, z_log_variance_sq, z
          
          # repeat for category
@@ -725,6 +728,12 @@ class NMTModel(nn.Module):
         else:
             z = enc_final
             P, loss_without_crossent = None, None
+            if self.opt.save_z_and_sample:
+                if not src_ori_text is None:
+                    src_text_t = torch.transpose(src_ori_text, 0, 1)
+                    z_print = z.view(z.size()[1:])
+                    Utils.print_matrix_with_text(z_print, src_text_t, self.opt.variable_src_dict.itos, 4, sys.stderr)
+ #return z_mean, z_log_variance_sq, z
        
         enc_state = \
             self.decoder.init_decoder_state(src, memory_bank, z)

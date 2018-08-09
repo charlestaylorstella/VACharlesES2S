@@ -372,6 +372,8 @@ class OrderedIterator(torchtext.data.Iterator):
                     #for b in random_shuffler(list(p_batch)):
                     #    print("b:", b)
             #print("self.data():", self.data())
+            #for d in self.data():
+            #    print("d:", d.Text)
             #print("self.data().Text:", self.data().Text)
             #print("self.data().Text:", self.data().Description)
             self.batches = pool(self.data(), self.random_shuffler)

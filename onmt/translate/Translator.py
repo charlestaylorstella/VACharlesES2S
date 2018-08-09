@@ -262,7 +262,7 @@ class Translator(object):
             return m.view(beam_size, batch_size, -1)
 
         # (1) Run the encoder on the src.
-        src = onmt.io.make_features(batch, 'src', data_type)
+        src, tmp = onmt.io.make_features(batch, 'src', data_type)
         src_lengths = None
         if data_type == 'text':
             _, src_lengths = batch.src
