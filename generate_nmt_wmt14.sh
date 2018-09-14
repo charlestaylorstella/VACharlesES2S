@@ -4,9 +4,9 @@ model=$1
 mark=${model}_$2
 
 gpuid=-1
-data_mark=_r1w # _r3w _r1w _r4k _h1w (empty)
-test_query=data/oridata2/wmt_ende_sp_preprocess/europarl-v7.de-en.en.sp.test
-test_response=data/oridata2/wmt_ende_sp_preprocess/europarl-v7.de-en.de.sp.test
+data_mark="" # _r3w _r1w _r4k _h1w (empty)
+test_query=data/oridata2/ConvSeq2Seq2017_WMT14_English2German_Data/English2German/newstest2014.en
+test_response=data/oridata2/ConvSeq2Seq2017_WMT14_English2German_Data/English2German/newstest2014.de
 
 mkdir -p predict_result
 mkdir -p log_for_predict

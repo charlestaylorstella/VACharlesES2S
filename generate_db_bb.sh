@@ -3,7 +3,7 @@ alias pythont='/bigstore/hlcm2/tianzhiliang/test/software/anaconda3_5_1_0_pytorc
 model=$1
 mark=${model}_$2
 
-gpuid=0
+gpuid=-1
 #test_query=data/oridata/DialogDataFromBenben/douban_data_seg_done/q_train_r2000
 
 mkdir -p predict_result
@@ -25,5 +25,5 @@ pythont translate.py -gpu ${gpuid} -model ${model} -src ${test_query} -output pr
 sh bleu.sh predict_result/pred_t5w_${mark}.txt ${text_response}
 }
 
-#test_2k
-test_t5w
+test_2k
+#test_t5w
